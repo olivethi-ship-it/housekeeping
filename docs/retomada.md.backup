@@ -1,0 +1,18 @@
+# Retomada do Projeto — homework
+
+Em execução por: ninguém
+
+## Estado Atual
+- **Versão:** v3.2 (Produção ativa no Firebase Hosting)
+- **URL:** https://casa-tarefas-ab1f5.web.app
+- **Código fonte único:** `public/index.html`
+
+## O que foi concluído
+1. **Sincronização em tempo real:** Integrado com Firebase Realtime Database (`casa-tarefas-ab1f5-default-rtdb`). Conecta automaticamente no carregamento.
+2. **Alertas da Defesa Civil Doméstica:** Pop-up modal, som (Web Audio API) e vibração a cada 10 min. Alerta **apenas** tarefas atrasadas do dono fixo do aparelho (`deviceOwner`).
+3. **Gestão Remota de Aparelhos:** No painel Admin, lista celulares conectados (iPhone/Android) e permite atribuir remotamente quem é o dono.
+4. **Proteção de Tarefas Atrasadas:** Tarefa atrasada pendente só pode ser liberada mediante digitação do PIN do Admin.
+5. **Autenticação Rigorosa:** PIN solicitado a cada acesso ao Admin (sem persistência desprotegida).
+6. **Módulo CRUD Completo (Admin):**
+   - **Pessoas:** Adicionar morador com apelido e remover morador da escala.
+   - **Tarefas:** Adicionar nova tarefa (dia, período, minutos, responsável), editar nome/tempo e excluir tarefas existentes. Sincronizado em tempo real no nó `tarefas_casa/custom_config`.
