@@ -1,0 +1,1940 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Tarefas da Casa</title>
+  <meta name="app-version" content="v1.2.0">
+  <meta name="author" content="© 2026 olivethi">
+  <meta http-equiv="refresh" content="300">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tarefas Casa">
+  <meta name="theme-color" content="#1F3864">
+  <link rel="apple-touch-icon" href="https://img.icons8.com/color/192/checklist.png">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+  
+  <!-- Firebase Compat SDKs para Realtime Sync entre iPhone e Android -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+
+/* Layout: app de celular em coluna única. Semana corrente (marcável) é a tela principal; outras semanas ficam numa tela de consulta separada, só leitura, aberta pelo rodapé. */
+:root{
+  --bg-base:#F3F4F8; --surface:#FFFFFF; --surface-2:#EBEEF5; --ink:#18203A; --muted:#5E667D; --line:#D9DDE8;
+  --navy:#1F3864; --on-navy:#FFFFFF; --done-ink:#8A91A5; --late:#C0262F; --late-bg:#FDECEE; --on-late:#FFFFFF; --ok:#1E7B4A;
+  --hist:#4A4F5C;
+  --c-renata:#1E1E1E; --t-renata:#ECECEE; --o-renata:#FFFFFF;
+  --c-thiago:#E0A500; --t-thiago:#FFF6D6; --o-thiago:#1B1A12;
+  --c-giovana:#D63F8C; --t-giovana:#FDEDF5; --o-giovana:#FFFFFF;
+  --c-felipe:#2F7BC9; --t-felipe:#E8F2FC; --o-felipe:#FFFFFF;
+  --bg:var(--bg-base); --p:var(--navy); --on-p:#FFFFFF;
+  --f-display:"Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+  --f-body:"Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg-base:#0F1320; --surface:#181D2C; --surface-2:#222839; --ink:#E9ECF4; --muted:#A1A8BC; --line:#2D3448;
+  --navy:#24365F; --on-navy:#FFFFFF; --done-ink:#6E7589; --late:#FF8D96; --late-bg:#3A1B22; --on-late:#2A0E12; --ok:#6FD39C; --hist:#3A3F4C;
+  --c-renata:#E6E6E9; --t-renata:#16181D; --o-renata:#111216;
+  --c-thiago:#F5C542; --t-thiago:#1F1B10; --o-thiago:#1B1A12;
+  --c-giovana:#F07AB6; --t-giovana:#22141C; --o-giovana:#1A0E15;
+  --c-felipe:#62A6F0; --t-felipe:#111B28; --o-felipe:#0B1420;
+  --p:#8FB0F0; --on-p:#0F1320; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg-base:#0F1320; --surface:#181D2C; --surface-2:#222839; --ink:#E9ECF4; --muted:#A1A8BC; --line:#2D3448;
+  --navy:#24365F; --on-navy:#FFFFFF; --done-ink:#6E7589; --late:#FF8D96; --late-bg:#3A1B22; --on-late:#2A0E12; --ok:#6FD39C; --hist:#3A3F4C;
+  --c-renata:#E6E6E9; --t-renata:#16181D; --o-renata:#111216;
+  --c-thiago:#F5C542; --t-thiago:#1F1B10; --o-thiago:#1B1A12;
+  --c-giovana:#F07AB6; --t-giovana:#22141C; --o-giovana:#1A0E15;
+  --c-felipe:#62A6F0; --t-felipe:#111B28; --o-felipe:#0B1420;
+  --p:#8FB0F0; --on-p:#0F1320; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{background:var(--bg-base)}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.4;-webkit-tap-highlight-color:transparent;min-height:100%}
+body[data-p="Renata"]{--p:var(--c-renata);--on-p:var(--o-renata);--bg:var(--t-renata)}
+body[data-p="Thiago"]{--p:var(--c-thiago);--on-p:var(--o-thiago);--bg:var(--t-thiago)}
+body[data-p="Giovana"]{--p:var(--c-giovana);--on-p:var(--o-giovana);--bg:var(--t-giovana)}
+body[data-p="Felipe"]{--p:var(--c-felipe);--on-p:var(--o-felipe);--bg:var(--t-felipe)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--navy)}
+body.is-hist::before{background:var(--hist)}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* barra superior */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--navy);color:var(--on-navy);box-shadow:0 2px 10px rgb(0 0 0 / .18)}
+.is-hist .top{background:var(--hist)}
+.top .wrap{padding-block:12px;display:grid;gap:10px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.brand h1{font-family:var(--f-display);font-weight:800;font-size:1.25rem;letter-spacing:-.01em;margin:0}
+.brand small{opacity:.85;font-size:.85rem;font-weight:600}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:rgb(255 255 255 / .12);border-radius:12px;padding:3px;gap:3px}
+.seg button{appearance:none;border:0;background:transparent;color:var(--on-navy);border-radius:9px;padding:9px 6px;font:700 .95rem var(--f-body);cursor:pointer;min-width:0}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink)}
+.people{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.people.five{grid-template-columns:repeat(5,1fr)}
+.person{appearance:none;border:2px solid rgb(255 255 255 / .22);background:transparent;color:var(--on-navy);border-radius:999px;
+  padding:7px 2px;font:600 .88rem var(--f-body);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0}
+.dot{width:11px;height:11px;border-radius:50%;flex:none;background:var(--dot);box-shadow:0 0 0 1.5px rgb(255 255 255 / .75);display:inline-block}
+.person[aria-pressed="true"]{background:var(--surface);color:var(--ink);border-color:var(--surface)}
+.person[aria-pressed="true"] .dot{box-shadow:0 0 0 1.5px var(--line)}
+.daytabs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px}
+.dtab{appearance:none;border:0;border-radius:10px;padding:6px 0 7px;background:rgb(255 255 255 / .10);color:var(--on-navy);cursor:pointer;
+  font:600 .72rem/1.15 var(--f-body);display:grid;justify-items:center;gap:1px;min-width:0;position:relative}
+.dtab b{font-size:.9rem;font-variant-numeric:tabular-nums}
+.dtab.prev{opacity:.75}
+.dtab[aria-selected="true"]{background:var(--surface);color:var(--ink);opacity:1}
+.dtab.is-today::after{content:"";position:absolute;bottom:2px;width:5px;height:5px;border-radius:50%;background:#7FD1A1}
+.dtab.has-late:not([aria-selected="true"]) b{color:#FFB3B8}
+.weeknav{display:flex;align-items:center;gap:8px}
+.navbtn{appearance:none;border:0;background:rgb(255 255 255 / .16);color:var(--on-navy);width:40px;height:40px;border-radius:12px;font-size:1.3rem;cursor:pointer;flex:none}
+.navbtn:disabled{opacity:.3;cursor:default}
+.weeklabel{flex:1;min-width:0;text-align:center;font-weight:700}
+.weeklabel span{display:block;font-weight:500;font-size:.8rem;opacity:.85}
+.back{appearance:none;border:0;background:rgb(255 255 255 / .16);color:var(--on-navy);border-radius:10px;padding:8px 12px;font:700 .85rem var(--f-body);cursor:pointer;justify-self:start}
+:is(.person,.seg button,.task,.btn,.dtab,.who-t,.navbtn,.back):focus-visible{outline:3px solid var(--p);outline-offset:2px}
+
+/* placar */
+main .wrap{padding-block:16px 40px;display:grid;gap:14px}
+.banner{background:var(--surface);border:1px dashed var(--muted);border-radius:12px;padding:10px 12px;font-size:.88rem;color:var(--muted)}
+.score{background:var(--surface);border-radius:var(--r);padding:16px;display:grid;gap:12px;border:1px solid var(--line)}
+.score-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.big{font-family:var(--f-display);font-weight:800;font-size:2.4rem;line-height:1;font-variant-numeric:tabular-nums}
+.big small{font-size:1rem;font-weight:600;color:var(--muted)}
+.big.ask{font-size:1.6rem}
+.who{font-weight:700;color:var(--p);text-align:right;font-size:.95rem}
+.bar{height:10px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.bar > div{height:100%;background:var(--p);border-radius:99px;transition:width .35s ease}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:.8rem;font-weight:600;padding:4px 10px;border-radius:99px;background:var(--surface-2);color:var(--muted)}
+.chip.late{background:var(--late-bg);color:var(--late)}
+.chip.ok{color:var(--ink)}
+
+/* dias */
+.day{background:var(--surface);border-radius:var(--r);border:1px solid var(--line);overflow:hidden;scroll-margin-top:170px}
+.day.today{border:2px solid var(--p)}
+.dayhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px 10px;border-bottom:1px solid var(--line)}
+.dayhead h2{margin:0;font-family:var(--f-display);font-weight:600;font-size:1.05rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badge{font-family:var(--f-body);font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:99px;background:var(--p);color:var(--on-p)}
+.tag{font-family:var(--f-body);font-size:.7rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:99px;background:var(--surface-2);color:var(--muted)}
+.daycount{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.daycount.full{color:var(--ink);font-weight:700}
+.daycount.late{color:var(--late);font-weight:700}
+.tasks{list-style:none;margin:0;padding:0}
+.task-center{min-width:0;display:flex;flex-direction:column;gap:2px}
+.task-badges{display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.task{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:12px;padding:12px 14px;min-height:56px;cursor:pointer;
+  border-top:1px solid var(--line);user-select:none;width:100%;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left;color:inherit;font:inherit}
+.tasks li:first-child > .task{border-top:0}
+.task.is-late{background:var(--late-bg);box-shadow:inset 4px 0 0 var(--late)}
+.task.is-late .txt{color:var(--late);font-weight:600}
+.box{width:28px;height:28px;border-radius:8px;border:2px solid var(--muted);color:var(--on-p);display:grid;place-items:center;transition:background .15s,border-color .15s}
+.task.is-late .box{border-color:var(--late)}
+.box svg{width:18px;height:18px;opacity:0;transform:scale(.6);transition:opacity .15s,transform .15s}
+.task[aria-checked="true"] .box{background:var(--p);border-color:var(--p)}
+.task[aria-checked="true"] .box svg{opacity:1;transform:none}
+.txt{min-width:0;font-size:1rem}
+.task[aria-checked="true"] .txt{color:var(--done-ink);text-decoration:line-through;text-decoration-thickness:1.5px}
+.when{font-size:.75rem;font-weight:600;color:var(--muted);background:var(--surface-2);padding:3px 8px;border-radius:99px;white-space:nowrap}
+.when.late{background:var(--late);color:var(--on-late)}
+.status{font-size:.75rem;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap}
+.status.done{color:var(--ok);background:var(--surface-2)}
+.status.miss{color:var(--late);background:var(--late-bg)}
+
+/* família: linhas compactas, no máximo 2 linhas de texto */
+.slot{padding:7px 14px 5px;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:var(--surface-2);border-top:1px solid var(--line)}
+.tasks .slot:first-child{border-top:0}
+.frow{display:flex;align-items:center;gap:10px;padding:9px 12px 9px 14px;border-top:1px solid var(--line);min-height:52px}
+.slot + .frow{border-top:0}
+.frow.is-late{background:var(--late-bg);box-shadow:inset 4px 0 0 var(--late)}
+.frow.is-late .ftxt{color:var(--late);font-weight:600}
+.frow .ftxt{flex:1;min-width:0;font-size:.95rem;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.frow.alldone .ftxt{color:var(--done-ink);text-decoration:line-through}
+.whos{display:flex;gap:6px;flex:none}
+.who-t{appearance:none;cursor:pointer;min-width:52px;height:36px;padding:0 10px;border-radius:99px;font:700 .85rem var(--f-body);
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  border:2px solid var(--dot);background:var(--tint);color:var(--ink)}
+span.who-t{cursor:default}
+.who-t svg{width:14px;height:14px;display:none}
+.who-t[aria-pressed="true"]{background:var(--dot);color:var(--on-dot)}
+.who-t[aria-pressed="true"] svg{display:block}
+
+/* rodapé */
+.share{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:10px}
+.share h3{margin:0;font-family:var(--f-display);font-weight:600;font-size:1.05rem}
+.share p{margin:0;color:var(--muted);font-size:.9rem}
+.btn{appearance:none;border:0;border-radius:12px;padding:14px 16px;font:700 1rem var(--f-body);background:var(--navy);color:var(--on-navy);cursor:pointer}
+.btn.ghost{background:var(--surface-2);color:var(--ink)}
+.histlink{appearance:none;background:none;border:0;color:var(--muted);font:600 .88rem var(--f-body);text-decoration:underline;text-underline-offset:3px;cursor:pointer;justify-self:center;padding:8px}
+textarea{width:100%;min-height:150px;border-radius:10px;border:1px solid var(--line);background:var(--bg-base);color:var(--ink);padding:10px;font:400 .85rem/1.4 var(--f-body);resize:vertical}
+.note{font-size:.8rem;color:var(--muted);text-align:center;margin:0}
+
+/* confirmação */
+.overlay{position:fixed;inset:0;z-index:20;background:rgb(10 14 28 / .55);display:grid;place-items:end center;
+  padding:16px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet{background:var(--surface);color:var(--ink);border-radius:18px;padding:20px;width:100%;max-width:440px;display:grid;gap:14px;box-shadow:0 10px 40px rgb(0 0 0 / .35)}
+.sheet h3{margin:0;font-family:var(--f-display);font-weight:600;font-size:1.15rem}
+.sheet p{margin:0;color:var(--muted);font-size:.95rem}
+.sheet .tname{color:var(--ink);font-weight:600}
+.sheet .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (min-width:600px){.overlay{place-items:center}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+
+
+/* --- Novas Funcionalidades: Sincronização, Alerta Defesa Civil e Dashboard --- */
+.top-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.sync-badge {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 700;
+  padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,0.14); color: var(--on-navy);
+  border: 1px solid rgba(255,255,255,0.22); cursor: pointer; text-decoration: none;
+}
+.sync-badge.online { background: #1E7B4A; color: #FFFFFF; border-color: #2ED573; }
+.sync-badge.local { background: rgba(255,255,255,0.18); color: var(--on-navy); }
+.sync-badge i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.sync-badge.online i { background: #7BED9F; box-shadow: 0 0 6px #7BED9F; }
+.sync-badge.local i { background: #FFA502; box-shadow: 0 0 6px #FFA502; }
+
+.seg.three { grid-template-columns: 1fr 1fr 1fr; }
+
+[hidden], .overlay[hidden], .civil-alert-overlay[hidden] { display: none !important; }
+
+/* Modal Alerta Defesa Civil */
+.civil-alert-overlay {
+  position: fixed; inset: 0; z-index: 1000; background: rgba(10, 14, 28, 0.85); backdrop-filter: blur(4px);
+  display: grid; place-items: center; padding: 16px; animation: alertFadeIn 0.25s ease-out;
+}
+@keyframes alertFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.civil-alert-card {
+  width: 100%; max-width: 480px; background: var(--surface); color: var(--ink); border-radius: 20px;
+  overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5); border: 3px solid #C0262F;
+  animation: alertShake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+}
+@keyframes alertShake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+.civil-alert-header {
+  background: repeating-linear-gradient(45deg, #C0262F, #C0262F 15px, #961B22 15px, #961B22 30px);
+  color: #FFFFFF; padding: 18px 16px; text-align: center;
+}
+.civil-alert-header .siren {
+  font-size: 2.2rem; display: inline-block; animation: sirenPulse 0.8s infinite alternate;
+}
+@keyframes sirenPulse { from { transform: scale(1); } to { transform: scale(1.25); } }
+.civil-alert-header h2 {
+  font-family: var(--f-display); font-size: 1.15rem; font-weight: 800; letter-spacing: 0.05em;
+  margin: 6px 0 2px; text-transform: uppercase;
+}
+.civil-alert-header small { font-size: 0.8rem; font-weight: 600; opacity: 0.95; }
+
+.civil-alert-body { padding: 20px; display: grid; gap: 14px; max-height: 60vh; overflow-y: auto; }
+.civil-alert-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.civil-alert-item {
+  padding: 10px 14px; background: var(--late-bg); border-left: 4px solid var(--late);
+  border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.civil-alert-item .name { font-weight: 700; font-size: 0.92rem; color: var(--late); }
+.civil-alert-item .who { font-size: 0.8rem; font-weight: 700; color: var(--ink); background: var(--surface); padding: 2px 8px; border-radius: 99px; }
+
+.civil-alert-footer { padding: 14px 20px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--surface-2); border-top: 1px solid var(--line); }
+.btn-emergency {
+  background: #C0262F; color: #FFFFFF; border: none; border-radius: 12px; padding: 12px;
+  font: 700 0.95rem var(--f-body); cursor: pointer; text-align: center;
+}
+.btn-emergency:hover { background: #A01B23; }
+
+/* Dashboard Styles */
+.dash-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 18px; display: grid; gap: 14px; margin-bottom: 14px;
+}
+.dash-title {
+  display: flex; align-items: center; justify-content: space-between; font-family: var(--f-display);
+  font-weight: 700; font-size: 1.1rem; margin: 0;
+}
+.dash-big-metric {
+  display: flex; align-items: baseline; gap: 8px;
+}
+.dash-big-metric .pct {
+  font-family: var(--f-display); font-size: 2.8rem; font-weight: 800; line-height: 1; color: var(--p);
+}
+.dash-big-metric .sub { font-size: 0.95rem; color: var(--muted); font-weight: 600; }
+
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 440px) { .dash-grid { grid-template-columns: 1fr; } }
+
+.person-card {
+  background: var(--surface-2); border-radius: 14px; padding: 14px; display: grid; gap: 8px;
+  border-left: 4px solid var(--card-color, var(--line));
+}
+.person-card-header { display: flex; align-items: center; justify-content: space-between; font-weight: 700; }
+.person-card-header .name { display: flex; align-items: center; gap: 6px; font-size: 1rem; }
+.person-card-header .pct-badge { font-family: var(--f-display); font-size: 1.25rem; font-weight: 800; }
+
+.pbar { height: 10px; background: rgba(0,0,0,0.08); border-radius: 99px; overflow: hidden; }
+:root[data-theme="dark"] .pbar, @media (prefers-color-scheme: dark) { .pbar { background: rgba(255,255,255,0.1); } }
+.pbar-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease-out; }
+
+.dash-stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); }
+.dash-stat-row b { color: var(--ink); }
+
+.day-bar-row { display: grid; grid-template-columns: 50px 1fr 45px; align-items: center; gap: 10px; font-size: 0.88rem; font-weight: 600; }
+.day-bar-row .dayname { color: var(--muted); }
+.day-bar-row .pct { text-align: right; font-weight: 700; }
+
+.sync-modal-sheet {
+  background: var(--surface); color: var(--ink); border-radius: 18px; padding: 20px; width: 100%; max-width: 460px;
+  display: grid; gap: 14px; box-shadow: 0 10px 40px rgba(0,0,0,0.35); max-height: 85vh; overflow-y: auto;
+}
+.sync-modal-sheet input, .sync-modal-sheet textarea {
+  width: 100%; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-base); color: var(--ink);
+  padding: 10px; font: 400 0.9rem var(--f-body);
+}
+
+  
+/* === V3 STYLES: TEMPOS, PIN ADMIN, SILENCIO / FERIAS === */
+.task-time {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surface-2);
+  padding: 2px 7px;
+  border-radius: 99px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  letter-spacing: 0.02em;
+}
+.frow .ftxt-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dayhead-times {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surface-2);
+  padding: 3px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.silence-banner {
+  background: #C0262F;
+  color: #FFFFFF;
+  padding: 10px 14px;
+  border-radius: var(--r);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  animation: alertFadeIn 0.3s ease;
+}
+.silence-banner button {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font: 700 0.8rem var(--f-body);
+  cursor: pointer;
+}
+
+/* Modal PIN Keypad */
+.pin-sheet {
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 20px;
+  padding: 24px;
+  width: 100%;
+  max-width: 360px;
+  display: grid;
+  gap: 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  text-align: center;
+}
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+.pin-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+  background: transparent;
+  transition: all 0.2s;
+}
+.pin-dot.filled {
+  background: var(--p);
+  border-color: var(--p);
+  transform: scale(1.15);
+}
+.pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  max-width: 280px;
+  margin: 0 auto;
+}
+.pin-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 14px;
+  font: 700 1.3rem var(--f-display);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.pin-btn:active {
+  transform: scale(0.95);
+  background: var(--line);
+}
+.pin-btn.action {
+  font-size: 1rem;
+  font-family: var(--f-body);
+}
+
+/* Painel Admin no Dashboard */
+.admin-badge-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+.admin-panel {
+  background: var(--surface);
+  border: 2px solid var(--p);
+  border-radius: var(--r);
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+</style>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap" id="topbar"></div>
+  </header>
+
+  <main>
+    <div class="wrap" id="main"></div>
+  </main>
+
+  <div class="overlay" id="confirm" role="dialog" aria-modal="true" aria-labelledby="cf-title" hidden>
+    <div class="sheet">
+      <h3 id="cf-title">Esta tarefa não é de hoje</h3>
+      <p id="cf-msg"></p>
+      <div class="row">
+        <button class="btn ghost" id="cf-no" type="button">Cancelar</button>
+        <button class="btn" id="cf-yes" type="button">Sim, marcar</button>
+      </div>
+    </div>
+  </div>
+
+
+
+<!-- Modal PIN Keypad para Pais (Admin) -->
+<div class="overlay" id="pin-modal" role="dialog" aria-modal="true" hidden>
+  <div class="pin-sheet">
+    <div style="font-size: 2rem;">🔒</div>
+    <h3 style="margin:0; font-family:var(--f-display)">Admin</h3>
+    <p style="margin:0; color:var(--muted); font-size:0.88rem">Digite a senha de 4 dígitos para acessar o painel de administração.</p>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div class="pin-keypad">
+      <button class="pin-btn" type="button" onclick="pinPress('1')">1</button>
+      <button class="pin-btn" type="button" onclick="pinPress('2')">2</button>
+      <button class="pin-btn" type="button" onclick="pinPress('3')">3</button>
+      <button class="pin-btn" type="button" onclick="pinPress('4')">4</button>
+      <button class="pin-btn" type="button" onclick="pinPress('5')">5</button>
+      <button class="pin-btn" type="button" onclick="pinPress('6')">6</button>
+      <button class="pin-btn" type="button" onclick="pinPress('7')">7</button>
+      <button class="pin-btn" type="button" onclick="pinPress('8')">8</button>
+      <button class="pin-btn" type="button" onclick="pinPress('9')">9</button>
+      <button class="pin-btn action" type="button" onclick="closePinModal()">Sair</button>
+      <button class="pin-btn" type="button" onclick="pinPress('0')">0</button>
+      <button class="pin-btn action" type="button" onclick="pinBackspace()">⌫</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Gerenciamento do Modo Silêncio / Férias (Só Pais) -->
+<div class="overlay" id="silence-modal" role="dialog" aria-modal="true" hidden>
+  <div class="sync-modal-sheet">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0; font-family:var(--f-display)">🔕 Modo Silêncio / Férias</h3>
+      <button class="histlink" style="padding:0" type="button" onclick="closeSilenceModal()">✕</button>
+    </div>
+    <p style="margin:0; color:var(--muted); font-size:0.9rem">
+      Pausa temporariamente todos os alertas de 10 min da Defesa Civil (ex: quando a família sai, viaja ou não está em casa).
+    </p>
+    
+    <div style="display:grid; gap:8px">
+      <button class="btn ghost" type="button" onclick="setSilenceDuration(2)">Silenciar por 2 Horas</button>
+      <button class="btn ghost" type="button" onclick="setSilenceDuration(4)">Silenciar por 4 Horas</button>
+      <button class="btn ghost" type="button" onclick="setSilenceUntilEndOfDay()">Silenciar até o fim do dia</button>
+      <button class="btn ghost" type="button" onclick="setSilenceDuration(72)">Modo Férias / Viagem (3 dias)</button>
+      <button class="btn ghost" type="button" onclick="setSilenceDuration(168)">Modo Férias Longas (1 semana)</button>
+      <button class="btn-emergency" type="button" onclick="cancelSilence()">Desativar Silêncio (Reativar Alertas)</button>
+    </div>
+
+    <hr style="border:0; border-top:1px solid var(--line); margin:4px 0">
+    
+    <hr style="border:0; border-top:1px solid var(--line); margin:6px 0">
+    <div style="font-weight:700; font-size:0.95rem; display:flex; justify-content:space-between; align-items:center">
+      <span>📱 Celulares Conectados</span>
+      <button class="histlink" style="font-size:0.8rem;padding:0" type="button" onclick="renderDeviceListInAdmin()">Atualizar</button>
+    </div>
+    <div id="admin-devices-list" style="display:grid; gap:6px; max-height:160px; overflow-y:auto"></div>
+    <!-- Seção de Pessoas -->
+    <hr style="border:0; border-top:1px solid var(--line); margin:6px 0">
+    <div style="font-weight:700; font-size:0.95rem; display:flex; justify-content:space-between; align-items:center">
+      <span>👥 Pessoas na Escala</span>
+      <button class="histlink" style="font-size:0.8rem;padding:0;color:var(--p)" type="button" onclick="addNewPersonPrompt()">+ Adicionar Pessoa</button>
+    </div>
+    <div id="admin-people-list" style="display:grid; gap:6px; max-height:120px; overflow-y:auto"></div>
+
+    <!-- Seção de Tarefas -->
+    <hr style="border:0; border-top:1px solid var(--line); margin:6px 0">
+    <div style="font-weight:700; font-size:0.95rem; display:flex; justify-content:space-between; align-items:center">
+      <span>📋 Tarefas da Casa</span>
+      <button class="histlink" style="font-size:0.8rem;padding:0;color:var(--p)" type="button" onclick="addNewTaskPrompt()">+ Nova Tarefa</button>
+    </div>
+    <div id="admin-tasks-list" style="display:grid; gap:6px; max-height:220px; overflow-y:auto"></div>
+
+
+    <label style="font-weight:700; font-size:0.85rem">Alterar PIN Admin (atual: <span id="cur-pin-label">••••</span>):</label>
+    <div style="display:flex; gap:8px">
+      <input type="password" id="new-pin-input" maxlength="4" placeholder="Novo PIN (4 dígitos)" style="flex:1">
+      <button class="btn" type="button" onclick="changeAdminPin()">Salvar PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Alerta Defesa Civil -->
+<div class="civil-alert-overlay" id="civil-alert" hidden>
+  <div class="civil-alert-card">
+    <div class="civil-alert-header">
+      <span class="siren">🚨</span>
+      <h2>Alerta de Tarefas Atrasadas</h2>
+      <small>Defesa Civil Doméstica · Casa do Thiago</small>
+    </div>
+    <div class="civil-alert-body">
+      <p style="margin:0;font-size:0.95rem;font-weight:600;text-align:center;">As seguintes tarefas passaram do horário e ainda não foram concluídas:</p>
+      <ul class="civil-alert-list" id="civil-alert-items"></ul>
+    </div>
+    <div class="civil-alert-footer">
+      <button class="btn ghost" id="btn-snooze-10" type="button" onclick="closeCivilAlert(10)">Lembrar em 10 min</button>
+      <button class="btn-emergency" id="btn-resolve-now" type="button" onclick="closeCivilAlert(0)">Vou resolver agora!</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Configuração Sincronização em Nuvem -->
+<div class="overlay" id="sync-modal" role="dialog" aria-modal="true" hidden>
+  <div class="sync-modal-sheet">
+    <h3 style="margin:0;font-family:var(--f-display)">Sincronização em Tempo Real</h3>
+    <p style="margin:0;color:var(--muted);font-size:0.9rem">
+      Conecte o Firebase Realtime Database gratuito para que quando qualquer um marcar uma tarefa no iPhone ou Android, todos os outros aparelhos atualizem na hora.
+    </p>
+    <label style="font-weight:600;font-size:0.85rem">Cole a Configuração do Firebase (JSON ou URL do Realtime DB):</label>
+    <textarea id="fb-config-input" rows="5" placeholder='{\n  "apiKey": "...",\n  "databaseURL": "https://seu-projeto-default-rtdb.firebaseio.com",\n  "projectId": "seu-projeto"\n}'></textarea>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn ghost" type="button" onclick="closeSyncModal()">Cancelar</button>
+      <button class="btn" type="button" onclick="saveFirebaseConfig()">Salvar e Conectar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function saveFirebaseConfig() {
+  const val = document.getElementById("fb-config-input").value.trim();
+  try {
+    let cfg = null;
+    if (val.startsWith("http")) {
+      cfg = { databaseURL: val };
+    } else {
+      cfg = JSON.parse(val);
+    }
+    localStorage.setItem(FB_KEY, JSON.stringify(cfg));
+    closeSyncModal();
+    location.reload();
+  } catch(e) {
+    alert("Formato inválido! Cole o objeto JSON do Firebase ou a URL do banco.");
+  }
+}
+</script>
+
+
+  <script>
+
+/* ---------- variáveis globais do Firebase ---------- */
+var firebaseDb = null;
+var isRemoteUpdating = false;
+
+/* ---------- dados do ciclo (repete a cada 4 semanas a partir de 19/10/2026) ---------- */
+let ROWS = [["Seg","Passear com a Pretinha, colocar comida e água (manhã/almoço)","Manhã",["Rê","Rê","Rê","Rê"]],["Seg","Retirar a louça da máquina e do escorredor e guardar","Manhã",["Thi","Thi","Thi","Thi"]],["Seg","Preparar o almoço","Manhã",["Thi","Thi","Thi","Thi"]],["Seg","Lavar a louça, limpar a pia e a mesa do almoço","Tarde",["Thi","Thi","Thi","Thi"]],["Seg","Compras de frutas e legumes","Noite",["Rê e Thi","Rê e Thi","Rê e Thi","Rê e Thi"]],["Seg","Buscar a Giovana na escola","Noite",["Rê","Rê","Rê","Rê"]],["Seg","Lavar a louça, limpar a pia e a mesa do jantar e ligar a lava-louças","Noite",["Lipe","Gigi","Lipe","Gigi"]],["Seg","Recolher o lixo da cozinha e repor os sacos","Noite",["Gigi","Lipe","Gigi","Lipe"]],["Seg","Recolher o lixo dos 4 banheiros e repor os sacos","Noite",["Gigi","Lipe","Gigi","Lipe"]],["Seg","Passear com a Pretinha, colocar comida e água à noite","Noite",["Gigi","Lipe","Gigi","Lipe"]],["Seg","Regar as plantas","-",["Rê","Rê","Rê","Rê"]],["Seg","Recolher o coco da Pretinha","-",["Thi","Thi","Thi","Thi"]],["Ter","Passear com a Pretinha, colocar comida e água (manhã/almoço)","Manhã",["Rê","Rê","Rê","Rê"]],["Ter","Retirar a louça da máquina e do escorredor e guardar","Manhã",["Thi","Thi","Thi","Thi"]],["Ter","Preparar o almoço","Manhã",["Rê","Rê","Rê","Rê"]],["Ter","Lavar a louça, limpar a pia e a mesa do almoço","Tarde",["Thi","Thi","Thi","Thi"]],["Ter","Lavar e estender as roupas coloridas","Tarde",["Gigi","Gigi","Gigi","Gigi"]],["Ter","Cozinhar feijão e legumes e congelar em potinhos","Noite",["Rê","Rê","Rê","Rê"]],["Ter","Lavar a louça, limpar a pia e a mesa do jantar e ligar a lava-louças","Noite",["Gigi","Lipe","Gigi","Lipe"]],["Ter","Recolher o lixo da cozinha e repor os sacos","Noite",["Lipe","Gigi","Lipe","Gigi"]],["Ter","Recolher e guardar as roupas coloridas","Noite",["Gigi","Gigi","Gigi","Gigi"]],["Ter","Passear com a Pretinha, colocar comida e água à noite","Noite",["Lipe","Gigi","Lipe","Gigi"]],["Ter","Recolher o coco da Pretinha","-",["Thi","Thi","Thi","Thi"]],["Qua","Passear com a Pretinha, colocar comida e água (manhã/almoço)","Manhã",["Rê","Rê","Rê","Rê"]],["Qua","Retirar a louça da máquina e do escorredor e guardar","Manhã",["Thi","Thi","Thi","Thi"]],["Qua","Preparar o almoço","Manhã",["Thi","Thi","Thi","Thi"]],["Qua","Lavar a louça, limpar a pia e a mesa do almoço","Tarde",["Thi","Thi","Thi","Thi"]],["Qua","Compras de carnes (por telefone) — quinzenal","Tarde",["Thi","—","Thi","—"]],["Qua","Fazer hambúrguer","Tarde",["Thi","—","Thi","—"]],["Qua","Compras de peixes (por telefone) — quinzenal","Tarde",["—","Thi","—","Thi"]],["Qua","Temperar, empanar e congelar o peixe","Tarde",["—","Thi","—","Thi"]],["Qua","Buscar a Giovana na escola","Noite",["Rê","Rê","Rê","Rê"]],["Qua","Recolher o lixo da cozinha e repor os sacos","Noite",["Lipe","Gigi","Lipe","Gigi"]],["Qua","Recolher o lixo dos 4 banheiros e repor os sacos","Noite",["Lipe","Gigi","Lipe","Gigi"]],["Qua","Lavar a louça, limpar a pia e a mesa do jantar e ligar a lava-louças","Noite",["Gigi","Lipe","Gigi","Lipe"]],["Qua","Passear com a Pretinha, colocar comida e água à noite","Noite",["Gigi","Lipe","Gigi","Lipe"]],["Qua","Recolher o coco da Pretinha","-",["Thi","Thi","Thi","Thi"]],["Qui","Passear com a Pretinha, colocar comida e água (manhã/almoço)","Manhã",["Rê","Rê","Rê","Rê"]],["Qui","Retirar a louça da máquina e do escorredor e guardar","Manhã",["Thi","Thi","Thi","Thi"]],["Qui","Preparar o almoço","Manhã",["Rê","Rê","Rê","Rê"]],["Qui","Lavar a louça, limpar a pia e a mesa do almoço","Tarde",["Thi","Thi","Thi","Thi"]],["Qui","Compras de mercado","Noite",["Rê e Thi","Rê e Thi","Rê e Thi","Rê e Thi"]],["Qui","Lavar a louça, limpar a pia e a mesa do jantar e ligar a lava-louças","Noite",["Gigi","Lipe","Gigi","Lipe"]],["Qui","Recolher o lixo da cozinha e repor os sacos","Noite",["Gigi","Lipe","Gigi","Lipe"]],["Qui","Passear com a Pretinha, colocar comida e água à noite","Noite",["Lipe","Gigi","Lipe","Gigi"]],["Qui","Regar as plantas","-",["Rê","Rê","Rê","Rê"]],["Qui","Recolher o coco da Pretinha","-",["Thi","Thi","Thi","Thi"]],["Sex","Passear com a Pretinha, colocar comida e água (manhã/almoço)","Manhã",["Rê","Rê","Rê","Rê"]],["Sex","Retirar a louça da máquina e do escorredor e guardar","Manhã",["Thi","Thi","Thi","Thi"]],["Sex","Preparar o almoço","Manhã",["Rê","Rê","Rê","Rê"]],["Sex","Lavar a louça, limpar a pia e a mesa do almoço","Tarde",["Thi","Thi","Thi","Thi"]],["Sex","Lavar e estender as roupas escuras","Tarde",["Lipe","Lipe","Lipe","Lipe"]],["Sex","Separar toalhas e roupa de cama para trocar","Noite",["Rê","Rê","Rê","Rê"]],["Sex","Recolher e guardar as roupas escuras","Noite",["Lipe","Lipe","Lipe","Lipe"]],["Sex","Lavar a louça, limpar a pia e a mesa do jantar e ligar a lava-louças","Noite",["Lipe","Gigi","Lipe","Gigi"]],["Sex","Recolher o lixo da cozinha e repor os sacos","Noite",["Gigi","Lipe","Gigi","Lipe"]],["Sex","Lavar e estender os tapetes","Noite",["Rê","—","Rê","—"]],["Sex","Limpar o cesto da máquina após tapetes","Noite",["Rê","—","Rê","—"]],["Sex","Recolher e guardar tapetes","Noite",["Gigi","—","Lipe","—"]],["Sex","Passear com a Pretinha, colocar comida e água à noite","Noite",["Lipe","Gigi","Lipe","Gigi"]],["Sex","Recolher o coco da Pretinha","-",["Thi","Thi","Thi","Thi"]],["Sáb","Passear com a Pretinha, colocar comida e água (manhã/almoço)","Manhã",["Thi","Thi","Thi","Thi"]],["Sáb","Retirar a louça da máquina e do escorredor e guardar","Manhã",["Gigi","Lipe","Gigi","Lipe"]],["Sáb","Cozinhar as carnes para as marmitas","Manhã",["Rê","Rê","Rê","Rê"]],["Sáb","Preparar o almoço","Manhã",["Thi","Thi","Thi","Thi"]],["Sáb","Lavar e estender as toalhas","Manhã",["Lipe","Gigi","Lipe","Gigi"]],["Sáb","Lavar e estender as roupas de cama e brancas","Manhã",["Lipe","Gigi","Lipe","Gigi"]],["Sáb","Preparar suco natural","Manhã",["Gigi","Lipe","Gigi","Lipe"]],["Sáb","Recolher o lixo da cozinha e repor os sacos","Tarde",["Gigi","Gigi","Gigi","Gigi"]],["Sáb","Lavar a louça, limpar a pia e a mesa do almoço","Tarde",["Lipe","Gigi","Lipe","Gigi"]],["Sáb","Recolher e guardar as toalhas","Noite",["Gigi","Lipe","Gigi","Lipe"]],["Sáb","Recolher e guardar as roupas de cama e brancas","Noite",["Gigi","Lipe","Gigi","Lipe"]],["Sáb","Lavar a louça, limpar a pia e a mesa do jantar e ligar a lava-louças","Noite",["Gigi","Lipe","Gigi","Lipe"]],["Sáb","Passear com a Pretinha, colocar comida e água à noite","Noite",["Thi","Thi","Thi","Thi"]],["Sáb","Recolher o coco da Pretinha","-",["Gigi","Lipe","Gigi","Lipe"]],["Dom","Passear com a Pretinha, colocar comida e água (manhã/almoço)","Manhã",["Thi","Thi","Thi","Thi"]],["Dom","Retirar a louça da máquina e do escorredor e guardar","Manhã",["Thi","Thi","Thi","Thi"]],["Dom","Lavar e estender panos de prato e toalha de mesa","Manhã",["—","Rê","—","Rê"]],["Dom","Preparar o almoço","Manhã",["Lipe","Gigi","Lipe","Gigi"]],["Dom","Preparar suco natural","Manhã",["Gigi","Lipe","Gigi","Lipe"]],["Dom","Preparar lanche da tarde","Tarde",["Rê","Rê","Rê","Rê"]],["Dom","Recolher o lixo da cozinha e repor os sacos","Tarde",["Lipe","Lipe","Lipe","Lipe"]],["Dom","Lavar a louça, limpar a pia e a mesa do almoço","Tarde",["Gigi","Lipe","Gigi","Lipe"]],["Dom","Planejar o cardápio da semana","Tarde",["Rê","Rê","Rê","Rê"]],["Dom","Preparar a lista de compras da semana","Tarde",["Rê","Rê","Rê","Rê"]],["Dom","Recolher e guardar panos de prato e toalha de mesa","Noite",["—","Lipe","—","Gigi"]],["Dom","Lavar a louça, limpar a pia e a mesa do jantar e ligar a lava-louças","Noite",["Lipe","Gigi","Lipe","Gigi"]],["Dom","Passear com a Pretinha, colocar comida e água à noite","Noite",["Thi","Thi","Thi","Thi"]],["Dom","Recolher o coco da Pretinha","-",["Lipe","Gigi","Lipe","Gigi"]]];                    // [dia, tarefa, período, [resp sem.1..4]]
+
+/* ---------- estimativa de tempos sugeridos por tarefa (minutos) ---------- */
+let TEMPO = {
+  "Passear com a Pretinha, colocar comida e água (manhã/almoço)": 30,
+  "Passear com a Pretinha, colocar comida e água à noite": 25,
+  "Recolher o coco da Pretinha": 10,
+  "Retirar a louça da máquina e do escorredor e guardar": 15,
+  "Preparar o almoço": 45,
+  "Lavar a louça, limpar a pia e a mesa do almoço": 25,
+  "Lavar a louça, limpar a pia e a mesa do jantar e ligar a lava-louças": 25,
+  "Preparar suco natural": 10,
+  "Preparar lanche da tarde": 15,
+  "Cozinhar as carnes para as marmitas": 60,
+  "Cozinhar feijão e legumes e congelar em potinhos": 45,
+  "Fazer hambúrguer": 35,
+  "Temperar, empanar e congelar o peixe": 40,
+  "Recolher o lixo da cozinha e repor os sacos": 8,
+  "Recolher o lixo dos 4 banheiros e repor os sacos": 15,
+  "Regar as plantas": 15,
+  "Buscar a Giovana na escola": 30,
+  "Compras de frutas e legumes": 60,
+  "Compras de mercado": 90,
+  "Compras de carnes (por telefone) — quinzenal": 15,
+  "Compras de peixes (por telefone) — quinzenal": 15,
+  "Planejar o cardápio da semana": 20,
+  "Preparar a lista de compras da semana": 15,
+  "Lavar e estender as roupas coloridas": 20,
+  "Recolher e guardar as roupas coloridas": 20,
+  "Lavar e estender as roupas escuras": 20,
+  "Recolher e guardar as roupas escuras": 20,
+  "Lavar e estender as toalhas": 20,
+  "Recolher e guardar as toalhas": 15,
+  "Lavar e estender as roupas de cama e brancas": 25,
+  "Recolher e guardar as roupas de cama e brancas": 20,
+  "Separar toalhas e roupa de cama para trocar": 15,
+  "Lavar e estender panos de prato e toalha de mesa": 15,
+  "Recolher e guardar panos de prato e toalha de mesa": 10,
+  "Lavar e estender os tapetes": 25,
+  "Limpar o cesto da máquina após tapetes": 10,
+  "Recolher e guardar tapetes": 10
+};
+
+function tempoOf(name) {
+  return TEMPO[name] || 15;
+}
+
+function fmtMin(m) {
+  if (!m) return "0min";
+  if (m < 60) return m + "min";
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem === 0 ? h + "h" : h + "h" + (rem < 10 ? "0" : "") + rem;
+}
+
+const CYCLE0 = new Date(2026, 9, 19);     // segunda, 19/10/2026
+const GRACE_H = 2;                        // até 2h da madrugada ainda conta como o dia anterior
+const DEADLINE = {"Manhã":12, "Tarde":18, "Noite":24 + GRACE_H, "-":24 + GRACE_H}; // hora-limite de cada período
+let PEOPLE = ["Renata","Thiago","Giovana","Felipe"];
+let CODE = {"Rê":"Renata","Thi":"Thiago","Gigi":"Giovana","Lipe":"Felipe"};
+let APELIDO = {Renata:"Rê", Thiago:"Thi", Giovana:"Gigi", Felipe:"Lipe"};
+const DIAS = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+const DIAS_LONGO = {Seg:"Segunda",Ter:"Terça",Qua:"Quarta",Qui:"Quinta",Sex:"Sexta","Sáb":"Sábado",Dom:"Domingo"};
+const SLOTS = [["Manhã","Manhã"],["Tarde","Tarde"],["Noite","Noite"],["-","Ao longo do dia"]];
+const CURTO = {
+  "Passear com a Pretinha, colocar comida e água (manhã/almoço)":"Passear com a Pretinha + comida e água",
+  "Passear com a Pretinha, colocar comida e água à noite":"Passear com a Pretinha + comida e água",
+  "Retirar a louça da máquina e do escorredor e guardar":"Guardar a louça da máquina e do escorredor",
+  "Lavar a louça, limpar a pia e a mesa do almoço":"Louça do almoço + limpar pia e mesa",
+  "Lavar a louça, limpar a pia e a mesa do jantar e ligar a lava-louças":"Louça do jantar, pia e mesa + ligar a máquina",
+  "Recolher o lixo da cozinha e repor os sacos":"Lixo da cozinha + repor sacos",
+  "Recolher o lixo dos 4 banheiros e repor os sacos":"Lixo dos 4 banheiros + repor sacos",
+  "Compras de peixes (por telefone) — quinzenal":"Compra de peixe (por telefone)",
+  "Cozinhar feijão e legumes e congelar em potinhos":"Cozinhar feijão e legumes e congelar",
+  "Separar toalhas e roupa de cama para trocar":"Separar toalhas e roupa de cama",
+  "Recolher e guardar as roupas de cama e brancas":"Guardar roupas de cama e brancas",
+  "Lavar e estender panos de prato e toalha de mesa":"Lavar panos de prato e toalha de mesa",
+  "Recolher e guardar panos de prato e toalha de mesa":"Guardar panos de prato e toalha de mesa"
+};
+const KEY = "tarefas-casa-19-10";
+const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+
+/* ---------- PIN dos Pais & Modo Silêncio (Férias/Ausência) ---------- */
+const ADMINS = ["Renata", "Thiago"];
+const PIN_STORAGE_KEY = "tarefas_admin_pin_auth";
+let adminPin = "1234"; // Padrão inicial
+let isAdminAuthenticated = false;
+let currentPinInput = "";
+let pendingAdminAction = null;
+
+function openPinModalForAction(callback) {
+  pendingAdminAction = callback;
+  openPinModal();
+}
+let silenceState = { active: false, until: 0, reason: "" };
+
+// Sessão de admin NÃO persiste: exige digitação do PIN a CADA acesso
+localStorage.removeItem(PIN_STORAGE_KEY);
+isAdminAuthenticated = false;
+
+function pinPress(digit) {
+  if (currentPinInput.length < 4) {
+    currentPinInput += digit;
+    updatePinDots();
+    if (currentPinInput.length === 4) {
+      setTimeout(verifyPin, 100);
+    }
+  }
+}
+function pinBackspace() {
+  if (currentPinInput.length > 0) {
+    currentPinInput = currentPinInput.slice(0, -1);
+    updatePinDots();
+  }
+}
+function updatePinDots() {
+  const dots = document.querySelectorAll("#pin-dots .pin-dot");
+  dots.forEach((dot, idx) => {
+    dot.classList.toggle("filled", idx < currentPinInput.length);
+  });
+}
+function openPinModal() {
+  currentPinInput = "";
+  updatePinDots();
+  document.getElementById("pin-modal").hidden = false;
+}
+function closePinModal() {
+  document.getElementById("pin-modal").hidden = true;
+  currentPinInput = "";
+}
+function verifyPin() {
+  if (currentPinInput === adminPin) {
+    isAdminAuthenticated = true;
+    closePinModal();
+    if (pendingAdminAction) {
+      const act = pendingAdminAction;
+      pendingAdminAction = null;
+      act();
+    } else {
+      document.getElementById("silence-modal").hidden = false;
+      document.getElementById("silence-modal").style.setProperty("display", "grid", "important");
+      renderDeviceListInAdmin(); renderPeopleManagerInAdmin(); renderTasksManagerInAdmin();
+    }
+  } else {
+    alert("PIN incorreto!");
+    currentPinInput = "";
+    updatePinDots();
+  }
+}
+
+function openSilenceModal() {
+  if (!isAdminAuthenticated) {
+    openPinModal();
+    return;
+  }
+  document.getElementById("silence-modal").hidden = false;
+}
+function closeSilenceModal() {
+  const elSil = document.getElementById("silence-modal");
+  if (elSil) {
+    elSil.hidden = true;
+    elSil.style.setProperty("display", "none", "important");
+  }
+  // Revoga autenticação imediatamente: próximo clique exigirá PIN novamente
+  isAdminAuthenticated = false;
+  currentPinInput = "";
+  render(false);
+}
+
+function setSilenceDuration(hours) {
+  silenceState = {
+    active: true,
+    until: Date.now() + hours * 3600000,
+    reason: "Silenciado por " + hours + "h"
+  };
+  saveSilenceToCloud();
+  closeSilenceModal();
+  render(false);
+}
+function setSilenceUntilEndOfDay() {
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+  silenceState = {
+    active: true,
+    until: endOfDay.getTime(),
+    reason: "Silenciado até o fim do dia"
+  };
+  saveSilenceToCloud();
+  closeSilenceModal();
+  render(false);
+}
+function cancelSilence() {
+  silenceState = { active: false, until: 0, reason: "" };
+  saveSilenceToCloud();
+  closeSilenceModal();
+  render(false);
+}
+function saveSilenceToCloud() {
+  try {
+    localStorage.setItem("tarefas_silence_state", JSON.stringify(silenceState));
+    if (firebaseDb) {
+      firebaseDb.ref("tarefas_casa/silence").set(silenceState);
+    }
+  } catch(e) {}
+}
+function changeAdminPin() {
+  const np = document.getElementById("new-pin-input").value.trim();
+  if (/^\d{4}$/.test(np)) {
+    adminPin = np;
+    if (firebaseDb) {
+      firebaseDb.ref("tarefas_casa/admin_pin").set(np);
+    }
+    localStorage.setItem("tarefas_admin_pin_val", np);
+    alert("PIN de Admin alterado com sucesso para " + np + "! Na próxima vez que abrir o Admin, use a nova senha.");
+    document.getElementById("new-pin-input").value = "";
+    closeSilenceModal();
+  } else {
+    alert("O PIN deve conter exatamente 4 números.");
+  }
+}
+
+/* ---------- datas ---------- */
+const DAY = 86400000;
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const fmt = d => String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0");
+const iso = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+const diaOf = d => DIAS[(d.getDay() + 6) % 7];
+const dayName = d => DIAS_LONGO[diaOf(d)] + ", " + fmt(d);
+const mondayOf = d => addDays(d, -((d.getDay() + 6) % 7));
+const weekIdx = d => Math.floor(Math.round((mondayOf(d) - CYCLE0) / DAY) / 7);   // semanas desde 19/10
+const houseDay = () => { const n = new Date(Date.now() - GRACE_H * 3600000); n.setHours(0,0,0,0); return n; };
+function pacote(p, d){ const w = weekIdx(d); if (w < 0) return null; const gigiB = w % 2 === 0;
+  if (p === "Giovana") return gigiB ? "B" : "A"; if (p === "Felipe") return gigiB ? "A" : "B"; return null; }
+
+/* tarefas de uma data: [{name, quando, who:[pessoas]}] */
+function tasksOn(d){
+  const w = weekIdx(d); if (w < 0) return [];
+  const c = ((w % 4) + 4) % 4, dia = diaOf(d), out = [];
+  ROWS.forEach(r => {
+    if (r[0] !== dia) return;
+    const code = r[3][c]; if (code === "—") return;
+    const who = code === "Rê e Thi" ? ["Renata","Thiago"] : code === "Todos" ? PEOPLE.slice() : [CODE[code]];
+    out.push({name:r[1], quando:r[2], who});
+  });
+  return out;
+}
+function indText(p, name){
+  if (name === "Compras de frutas e legumes" || name === "Compras de mercado")
+    return name + (p === "Renata" ? " (junto com o Thiago)" : " (junto com a Renata)");
+  return name;
+}
+
+/* ---------- armazenamento (neste aparelho) ---------- */
+const DEVICE_OWNER_KEY = "tarefas_device_owner";
+let deviceOwner = localStorage.getItem(DEVICE_OWNER_KEY) || null; // Dono fixo deste aparelho
+let store = {person:null, mode:"ind", done:{}, v:2};
+try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && typeof s === "object") store = {person:s.person||null, mode:s.mode||"ind", done:s.done||{}, v:s.v||1}; } catch(e) {}
+if (store.v !== 2) {   // converte marcações antigas "pessoa|semana|dia|tarefa" para "pessoa|data|tarefa"
+  const nd = {};
+  Object.keys(store.done).forEach(k => { const a = k.split("|");
+    if (a.length === 4 && /^\d+$/.test(a[1]) && DIAS.includes(a[2])) nd[a[0] + "|" + iso(addDays(CYCLE0, 7 * +a[1] + DIAS.indexOf(a[2]))) + "|" + a[3]] = store.done[k];
+    else nd[k] = store.done[k]; });
+  store.done = nd; store.v = 2;
+}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(store)); } catch(e) {} }
+save();
+const keyOf = (p, d, name) => p + "|" + iso(d) + "|" + indText(p, name);
+const isDone = (p, d, name) => !!store.done[keyOf(p, d, name)];
+const isLate = (d, quando) => Date.now() > d.getTime() + DEADLINE[quando] * 3600000;
+
+/* ---------- semana corrente (troca sozinha: no domingo já mostra a semana seguinte, mantendo o domingo) ---------- */
+let today, WIN;
+function computeWindow(){
+  today = houseDay();
+  const mon = today.getDay() === 0 ? addDays(today, 1) : mondayOf(today);
+  WIN = []; if (today.getDay() === 0) WIN.push(today);
+  for (let i = 0; i < 7; i++) WIN.push(addDays(mon, i));
+}
+computeWindow();
+const mainMonday = () => WIN[WIN.length - 7];
+const winIdx = d => WIN.findIndex(x => x.getTime() === d.getTime());
+
+/* ---------- estado de tela ---------- */
+let person = PEOPLE.includes(store.person) ? store.person : null;
+let mode = store.mode === "fam" ? "fam" : "ind";
+let famI = Math.max(0, winIdx(today));
+let hist = null;   // {week: segunda-feira, who: "Família" | nome}
+
+const dotVar = p => "var(--c-" + p.toLowerCase() + ")";
+const tintVar = p => "var(--t-" + p.toLowerCase() + ")";
+const onVar = p => "var(--o-" + p.toLowerCase() + ")";
+function el(tag, cls, text){ const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function chip(parent, txt, cls){ parent.appendChild(el("span", "chip " + (cls||""), txt)); }
+
+/* ---------- confirmação para marcar fora do dia ---------- */
+const cf = document.getElementById("confirm"); let cfAction = null, cfReturn = null;
+function askOutOfDay(d, label, action, from){
+  const msg = document.getElementById("cf-msg"); msg.textContent = "";
+  msg.append("A tarefa ", el("span", "tname", label), " é de " + dayName(d).toLowerCase() + ", e hoje é " + dayName(today).toLowerCase() + ". Quer marcar como feita mesmo assim?");
+  cfAction = action; cfReturn = from;
+  cf.hidden = false;
+  cf.style.setProperty("display", "grid", "important");
+  document.getElementById("cf-yes").focus();
+}
+function closeCf(run){
+  cf.hidden = true;
+  cf.style.setProperty("display", "none", "important");
+  const a = cfAction; cfAction = null;
+  if (run && a) a();
+  if (cfReturn && document.body.contains(cfReturn)) cfReturn.focus();
+}
+document.getElementById("cf-yes").addEventListener("click", () => closeCf(true));
+document.getElementById("cf-no").addEventListener("click", () => closeCf(false));
+cf.addEventListener("click", e => { if (e.target === cf) closeCf(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !cf.hidden) closeCf(false); });
+function tap(p, d, name, label, from, quando){
+  const k = keyOf(p, d, name);
+  const isCurrentlyLate = isLate(d, quando);
+  
+// Allow any user to mark task completion, even if late. UI will reflect status.
+
+
+  const run = () => {
+    if (store.done[k]) { delete store.done[k]; syncTaskToCloud(k, null); }
+    else { store.done[k] = Date.now(); syncTaskToCloud(k, store.done[k]); }
+    save();
+    render(false);
+  };
+  
+  if (!store.done[k] && d.getTime() !== today.getTime()) {
+    askOutOfDay(d, label, run, from);
+  } else {
+    run();
+  }
+}
+
+/* ---------- barra superior ---------- */
+function renderTop(){
+  const top = document.getElementById("topbar"); top.innerHTML = "";
+  if (hist) {
+    const b = el("button", "back", "← Voltar para a semana atual"); b.type = "button";
+    b.addEventListener("click", () => { hist = null; render(true); });
+    const brand = el("div", "brand"); brand.append(el("h1", null, "Consultar semanas"), el("small", null, "Somente leitura"));
+    const nav = el("div", "weeknav");
+    const prev = el("button", "navbtn", "‹"), next = el("button", "navbtn", "›");
+    prev.type = next.type = "button"; prev.setAttribute("aria-label", "Semana anterior"); next.setAttribute("aria-label", "Próxima semana");
+    const minW = 0, maxW = weekIdx(mainMonday()) + 4, w = weekIdx(hist.week);
+    prev.disabled = w <= minW; next.disabled = w >= maxW;
+    prev.addEventListener("click", () => { hist.week = addDays(hist.week, -7); render(true); });
+    next.addEventListener("click", () => { hist.week = addDays(hist.week, 7); render(true); });
+    const lab = el("div", "weeklabel", fmt(hist.week) + " a " + fmt(addDays(hist.week, 6)));
+    const sub = w < weekIdx(mainMonday()) ? "Semana passada" : w > weekIdx(mainMonday()) ? "Semana futura" : "Semana atual";
+    lab.appendChild(el("span", null, sub));
+    nav.append(prev, lab, next);
+    const ppl = el("div", "people five"); ppl.setAttribute("role", "group"); ppl.setAttribute("aria-label", "De quem");
+    ["Família"].concat(PEOPLE).forEach(p => {
+      const c = el("button", "person"); c.type = "button"; c.setAttribute("aria-pressed", String(hist.who === p));
+      if (p !== "Família") { const dt = el("i", "dot"); dt.style.setProperty("--dot", dotVar(p)); c.appendChild(dt); }
+      c.append(p === "Família" ? "Todos" : APELIDO[p]);
+      c.setAttribute("aria-label", p);
+      c.addEventListener("click", () => { hist.who = p; render(false); });
+      ppl.appendChild(c);
+    });
+    top.append(b, brand, nav, ppl);
+    return;
+  }
+  
+  const brand = el("div", "brand");
+  const brandTitle = el("div"); brandTitle.append(el("h1", null, "Tarefas da Casa"), el("small", null, fmt(WIN[0]) + " a " + fmt(WIN[WIN.length-1])));
+  const syncBtn = el("div", "sync-badge " + (firebaseDb ? "online" : "local"));
+  syncBtn.innerHTML = "<i></i> " + (firebaseDb ? "Online" : "Conectando...");
+  brand.append(brandTitle, syncBtn);
+
+  const seg = el("div", "seg three"); seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "O que ver");
+  [["ind","Minhas"],["fam","Família"],["dash","Dashboard 📊"]].forEach(([m, t]) => {
+    const b = el("button", null, t); b.type = "button"; b.setAttribute("aria-pressed", String(mode === m));
+    b.addEventListener("click", () => { mode = m; store.mode = m; save(); render(true); });
+    seg.appendChild(b);
+  });
+  top.append(brand, seg);
+  if (mode === "ind") {
+    const ppl = el("div", "people"); ppl.setAttribute("role", "group"); ppl.setAttribute("aria-label", "Quem está usando");
+    PEOPLE.forEach(p => {
+      const isOwner = (deviceOwner === p);
+      const c = el("button", "person"); c.type = "button"; c.setAttribute("aria-pressed", String(p === person));
+      const dt = el("i", "dot"); dt.style.setProperty("--dot", dotVar(p)); 
+      c.append(dt, p + (isOwner ? " (Meu)" : ""));
+      c.addEventListener("click", () => {
+        person = p;
+        store.person = p;
+        if (!deviceOwner) {
+          deviceOwner = p;
+          localStorage.setItem(DEVICE_OWNER_KEY, p);
+        }
+        save();
+        render(true);
+      });
+      ppl.appendChild(c);
+    });
+    top.appendChild(ppl);
+  } else {
+    const tabs = el("div", "daytabs"); tabs.setAttribute("role", "tablist"); tabs.setAttribute("aria-label", "Dia");
+    WIN.forEach((d, i) => {
+      const t = el("button", "dtab"); t.type = "button"; t.setAttribute("role", "tab"); t.setAttribute("aria-selected", String(i === famI));
+      if (WIN.length === 8 && i === 0) t.classList.add("prev");
+      if (d.getTime() === today.getTime()) t.classList.add("is-today");
+      if (tasksOn(d).some(x => isLate(d, x.quando) && x.who.some(p => !isDone(p, d, x.name)))) t.classList.add("has-late");
+      t.append(el("span", null, diaOf(d)), el("b", null, d.getDate()));
+      t.setAttribute("aria-label", dayName(d));
+      t.addEventListener("click", () => { famI = i; render(true); });
+      tabs.appendChild(t);
+    });
+    top.appendChild(tabs);
+  }
+}
+
+/* ---------- blocos de dia ---------- */
+function dayShell(d, opts){
+  const isToday = d.getTime() === today.getTime();
+  const sec = el("section", "day" + (isToday && !opts.readOnly ? " today" : "")); sec.id = "d-" + iso(d);
+  const head = el("div", "dayhead"); const h2 = el("h2", null, dayName(d));
+  if (isToday) h2.appendChild(el("span", "badge", "Hoje"));
+  if (opts.prevWeek) h2.appendChild(el("span", "tag", "Semana anterior"));
+  const cnt = el("span", "daycount"); head.append(h2, cnt);
+  const ul = el("ul", "tasks"); sec.append(head, ul);
+  return {sec, cnt, ul};
+}
+
+function personDay(p, d, opts){
+  const list = tasksOn(d).filter(t => t.who.includes(p));
+  if (!list.length) return null;
+  const S = dayShell(d, opts); let dd = 0, late = 0;
+  let totalMin = 0, doneMin = 0;
+
+  list.forEach(t => {
+    const min = tempoOf(t.name);
+    totalMin += min;
+    const label = indText(p, t.name), on = isDone(p, d, t.name), lt = !on && isLate(d, t.quando);
+    if (on) { dd++; doneMin += min; }
+    if (lt) late++;
+    const li = el("li");
+    const row = el(opts.readOnly ? "div" : "button", "task" + (lt ? " is-late" : ""));
+    if (!opts.readOnly) { row.type = "button"; row.setAttribute("role", "checkbox"); row.addEventListener("click", () => tap(p, d, t.name, label, row, t.quando)); }
+    else row.style.cursor = "default";
+    row.setAttribute("aria-checked", String(on));
+    row.innerHTML = '<span class="box">' + CHECK + '</span>';
+    
+    const center = el("div", "task-center");
+    const txtSpan = el("span", "txt", label);
+    center.appendChild(txtSpan);
+    
+    const badges = el("div", "task-badges");
+    badges.appendChild(el("span", "task-time", "⏱ " + fmtMin(min)));
+    
+    if (opts.readOnly && d < today) badges.appendChild(el("span", "status " + (on ? "done" : "miss"), on ? "Feita" : "Não feita"));
+    else if (lt) badges.appendChild(el("span", "when late", "Atrasada"));
+    else if (t.quando !== "-") badges.appendChild(el("span", "when", t.quando));
+    
+    row.append(center, badges);
+    li.appendChild(row); S.ul.appendChild(li);
+  });
+
+  const timeLabel = fmtMin(doneMin) + " / " + fmtMin(totalMin);
+  S.cnt.textContent = dd === list.length ? "Tudo feito (" + timeLabel + ") ✓" : dd + " de " + list.length + " (" + timeLabel + ")";
+  if (dd === list.length) S.cnt.classList.add("full"); else if (late) S.cnt.classList.add("late");
+  return {sec: S.sec, total: list.length, done: dd, late, totalMin, doneMin, isToday: d.getTime() === today.getTime()};
+}
+
+function familyDay(d, opts){
+  const list = tasksOn(d);
+  const S = dayShell(d, opts); let marks = 0, totalMarks = 0;
+  let dayTotalMin = 0, dayDoneMin = 0;
+
+  SLOTS.forEach(([q, label]) => {
+    const part = list.filter(t => t.quando === q);
+    if (!part.length) return;
+    
+    // Calcula tempo do período
+    let slotMin = 0;
+    part.forEach(t => { slotMin += tempoOf(t.name) * t.who.length; });
+    S.ul.appendChild(el("li", "slot", label + " (" + fmtMin(slotMin) + ")"));
+
+    part.forEach(t => {
+      const min = tempoOf(t.name);
+      const li = el("li", "frow");
+      
+      const wrap = el("div", "ftxt-wrap");
+      const tx = el("span", "ftxt", CURTO[t.name] || t.name); tx.title = t.name;
+      const ttime = el("span", "task-time", "⏱ " + fmtMin(min));
+      wrap.append(tx, ttime);
+
+      const whos = el("span", "whos"); let all = true;
+      t.who.forEach(p => {
+        dayTotalMin += min;
+        const on = isDone(p, d, t.name); totalMarks++; 
+        if (on) { marks++; dayDoneMin += min; } else all = false;
+        const b = el(opts.readOnly ? "span" : "button", "who-t");
+        if (!opts.readOnly) { b.type = "button"; b.addEventListener("click", () => tap(p, d, t.name, (CURTO[t.name] || t.name) + " (" + APELIDO[p] + ")", b, t.quando)); }
+        b.setAttribute("aria-pressed", String(on));
+        b.setAttribute("aria-label", p + ": " + t.name + (on ? " (feito)" : " (pendente)"));
+        b.style.setProperty("--dot", dotVar(p)); b.style.setProperty("--tint", tintVar(p)); b.style.setProperty("--on-dot", onVar(p));
+        b.innerHTML = CHECK; b.append(APELIDO[p]); whos.appendChild(b);
+      });
+      if (all) li.classList.add("alldone");
+      else if (isLate(d, t.quando) && !(opts.readOnly && d >= today)) li.classList.add("is-late");
+      li.append(wrap, whos); S.ul.appendChild(li);
+    });
+  });
+  if (!list.length) S.ul.appendChild(el("li", "slot", "Sem tarefas neste dia"));
+  const timeLabel = fmtMin(dayDoneMin) + " / " + fmtMin(dayTotalMin);
+  S.cnt.textContent = !totalMarks ? "" : marks === totalMarks ? "Tudo feito (" + timeLabel + ") ✓" : marks + " de " + totalMarks + " (" + timeLabel + ")";
+  if (totalMarks && marks === totalMarks) S.cnt.classList.add("full"); else if (S.ul.querySelector(".is-late")) S.cnt.classList.add("late");
+  return S.sec;
+}
+
+/* ---------- telas ---------- */
+function renderMain(scroll){
+  const main = document.getElementById("main"); main.innerHTML = "";
+
+  // Banner se o modo silêncio estiver ativo
+  if (silenceState.active && silenceState.until > Date.now()) {
+    const silBan = el("div", "silence-banner");
+    const remHours = Math.ceil((silenceState.until - Date.now()) / 3600000);
+    silBan.innerHTML = "<span>🔕 Modo Silêncio Ativo (alertas pausados por ~" + remHours + "h)</span>";
+    if (isAdminAuthenticated) {
+      const bReactivate = el("button", null, "Desativar");
+      bReactivate.type = "button";
+      bReactivate.addEventListener("click", cancelSilence);
+      silBan.appendChild(bReactivate);
+    }
+    main.appendChild(silBan);
+  }
+
+  if (mode === "dash") {
+    renderDashboard(main);
+    addFooter(main);
+    if (scroll) window.scrollTo(0, 0);
+    return;
+  }
+
+  if (mode === "fam") {
+    main.appendChild(familyDay(WIN[famI], {prevWeek: WIN.length === 8 && famI === 0}));
+    main.appendChild(el("p", "note", "Toque no nome de quem fez para marcar. Tarefas em vermelho passaram do horário sem ser marcadas."));
+    addFooter(main);
+    if (scroll) window.scrollTo(0, 0);
+    return;
+  }
+  if (!person) {
+    const sc = el("section", "score"); sc.append(el("div", "big ask", "Quem é você?"));
+    const ch = el("div", "chips"); chip(ch, "Toque no seu nome lá em cima para ver as suas tarefas."); sc.appendChild(ch);
+    main.appendChild(sc); addFooter(main); return;
+  }
+  const blocks = WIN.map((d, i) => personDay(person, d, {prevWeek: WIN.length === 8 && i === 0})).filter(Boolean);
+  let total = 0, done = 0, late = 0, tDone = 0, tTot = 0;
+  let weekTotMin = 0, weekDoneMin = 0, todayTotMin = 0, todayDoneMin = 0;
+  blocks.forEach(b => { 
+    total += b.total; done += b.done; late += b.late;
+    weekTotMin += b.totalMin; weekDoneMin += b.doneMin;
+    if (b.isToday) { tDone = b.done; tTot = b.total; todayTotMin = b.totalMin; todayDoneMin = b.doneMin; } 
+  });
+  const sc = el("section", "score");
+  const st = el("div", "score-top"); const big = el("div", "big"); 
+  big.innerHTML = done + '<small> / ' + total + ' feitas</small><div style="font-size:0.88rem;color:var(--muted);font-weight:600;margin-top:2px">⏱ ' + fmtMin(weekDoneMin) + ' de ' + fmtMin(weekTotMin) + '</div>';
+  const pac = pacote(person, mainMonday());
+  st.append(big, el("div", "who", person + (pac ? " · Pacote " + pac : "")));
+  const bar = el("div", "bar"); const fill = el("div"); fill.style.width = (total ? Math.round(done/total*100) : 0) + "%"; bar.appendChild(fill);
+  const ch = el("div", "chips");
+  if (tTot) chip(ch, "Hoje: " + tDone + " de " + tTot + " (" + fmtMin(todayDoneMin) + "/" + fmtMin(todayTotMin) + ")", tDone === tTot ? "ok" : "");
+  if (late) chip(ch, late + (late === 1 ? " tarefa atrasada" : " tarefas atrasadas"), "late");
+  if (!late && done === total && total) chip(ch, "Tudo completo!", "ok");
+  sc.append(st, bar, ch); main.appendChild(sc);
+  blocks.forEach(b => main.appendChild(b.sec));
+  const share = el("section", "share");
+  share.append(el("h3", null, "Avisar a família"), el("p", null, "Copia um resumo do que já foi feito e do que está pendente para colar no WhatsApp da família."));
+  const btn = el("button", "btn", "Copiar resumo"); btn.type = "button"; const ta = el("textarea"); ta.readOnly = true; ta.hidden = true; ta.setAttribute("aria-label", "Resumo");
+  btn.addEventListener("click", () => copySummary(btn, ta)); share.append(btn, ta); main.appendChild(share);
+  main.appendChild(el("p", "note", "As marcações ficam salvas neste celular, no navegador em que você abriu a página."));
+  addFooter(main);
+  if (scroll) { const t = document.getElementById("d-" + iso(today)); if (t) requestAnimationFrame(() => t.scrollIntoView({block:"start"})); else window.scrollTo(0, 0); }
+}
+function addFooter(main){
+  const b = el("button", "histlink", "Consultar outras semanas"); b.type = "button";
+  b.addEventListener("click", () => { hist = {week: addDays(mainMonday(), -7), who: mode === "ind" && person ? person : "Família"}; render(true); });
+  main.appendChild(b);
+}
+
+function renderHist(scroll){
+  const main = document.getElementById("main"); main.innerHTML = "";
+  main.appendChild(el("div", "banner", "Modo consulta: aqui não é possível marcar tarefas. Para marcar, volte para a semana atual."
+    + (hist.week.getTime() === CYCLE0.getTime() ? " Na semana de 19/10 as tarefas foram marcadas no PDF, por isso aparecem aqui como não feitas." : "")));
+  const pastWeek = hist.week < mainMonday();
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(hist.week, i);
+    if (hist.who === "Família") main.appendChild(familyDay(d, {readOnly: true}));
+    else { const b = personDay(hist.who, d, {readOnly: true}); if (b) main.appendChild(b.sec); }
+  }
+  if (weekIdx(hist.week) < 0) main.appendChild(el("p", "note", "O cronograma começou em 19/10/2026."));
+  if (scroll) window.scrollTo(0, 0);
+}
+
+function render(scroll){
+  document.body.classList.toggle("is-hist", !!hist);
+  document.body.dataset.p = hist ? (hist.who !== "Família" ? hist.who : "") : (mode === "ind" && person ? person : "");
+  renderTop();
+  if (hist) renderHist(scroll); else renderMain(scroll);
+}
+
+/* ---------- resumo ---------- */
+function copySummary(b, ta){
+  const p = person; let done = 0, total = 0; const pend = [];
+  WIN.forEach(d => tasksOn(d).filter(t => t.who.includes(p)).forEach(t => {
+    total++; const on = isDone(p, d, t.name); if (on) done++;
+    if (!on && isLate(d, t.quando)) pend.push(diaOf(d) + " " + fmt(d) + " — " + indText(p, t.name));
+  }));
+  const pac = pacote(p, mainMonday());
+  let s = p + " — Tarefas de " + fmt(WIN[0]) + " a " + fmt(WIN[WIN.length-1]) + (pac ? " · Pacote " + pac : "") + "\nFeitas: " + done + " de " + total + "\n";
+  s += pend.length ? "Atrasadas:\n" + pend.map(x => "• " + x).join("\n") : "Nada atrasado. ✓";
+  ta.value = s;
+  const ok = () => { b.textContent = "Resumo copiado"; setTimeout(() => b.textContent = "Copiar resumo", 2200); };
+  const fail = () => { ta.hidden = false; ta.focus(); ta.select(); b.textContent = "Selecione o texto abaixo e copie"; };
+  try { navigator.clipboard.writeText(s).then(ok, fail); } catch(e) { fail(); }
+}
+
+/* ---------- atualização automática (virada de hora e de dia) ---------- */
+let lastMin = -1;
+setInterval(() => {
+  const before = today.getTime(); computeWindow();
+  if (today.getTime() !== before) { famI = Math.max(0, winIdx(today)); render(false); return; }
+  const m = Math.floor(Date.now() / 600000); if (m !== lastMin) { lastMin = m; if (cf.hidden) render(false); }   // recalcula atrasos a cada 10 min
+}, 60000);
+/* ==========================================================================
+   SINCRONIZAÇÃO EM TEMPO REAL (FIREBASE REALTIME DB / LOCAL FALLBACK)
+   ========================================================================== */
+const FB_KEY = "tarefas_firebase_config_v1";
+// firebaseDb declared above
+
+const DEFAULT_FIREBASE_CONFIG = {
+  databaseURL: "https://casa-tarefas-ab1f5-default-rtdb.firebaseio.com"
+};
+
+function initFirebase() {
+  try {
+    const raw = localStorage.getItem(FB_KEY);
+    const config = raw ? JSON.parse(raw) : DEFAULT_FIREBASE_CONFIG;
+    if (!config || !config.databaseURL) return;
+    
+    if (!firebase.apps.length) {
+      firebase.initializeApp(config);
+    }
+    firebaseDb = firebase.database();
+    
+    // Atualiza status online no badge
+    firebaseDb.ref(".info/connected").on("value", snap => {
+      renderTop(); registerDevicePresence(); listenCustomDataFromFirebase();
+    });
+
+    // Escuta tarefas feitas
+    firebaseDb.ref("tarefas_casa/done").on("value", snapshot => {
+      const val = snapshot.val();
+      if (val && typeof val === "object") {
+        isRemoteUpdating = true;
+        store.done = val;
+        save();
+        render(false);
+        isRemoteUpdating = false;
+      }
+    });
+
+    // Escuta modo silêncio sincronizado entre todos os aparelhos
+    firebaseDb.ref("tarefas_casa/silence").on("value", snapshot => {
+      const val = snapshot.val();
+      if (val && typeof val === "object") {
+        silenceState = val;
+        render(false);
+      }
+    });
+
+    // Escuta PIN de admin salvo na nuvem
+    firebaseDb.ref("tarefas_casa/admin_pin").on("value", snapshot => {
+      const val = snapshot.val();
+      if (val && typeof val === "string") {
+        adminPin = val;
+      }
+    });
+  } catch (err) {
+    console.warn("Aviso Firebase:", err);
+  }
+}
+
+
+/* ---------- Gerenciamento Remoto de Dispositivos pelo Admin ---------- */
+const DEVICE_ID_KEY = "tarefas_device_id";
+let myDeviceId = localStorage.getItem(DEVICE_ID_KEY);
+if (!myDeviceId) {
+  myDeviceId = "dev_" + Math.random().toString(36).substr(2, 9);
+  localStorage.setItem(DEVICE_ID_KEY, myDeviceId);
+}
+
+// Detecta modelo/plataforma amigável do aparelho
+function detectDeviceInfo() {
+  const ua = navigator.userAgent;
+  let model = "Computador / Navegador";
+  if (/iPhone/i.test(ua)) model = "iPhone (Apple)";
+  else if (/iPad/i.test(ua)) model = "iPad (Apple)";
+  else if (/Android/i.test(ua)) {
+    const match = ua.match(/Android[^;]+;\s*([^;)]+)/);
+    model = match ? "Android (" + match[1].trim() + ")" : "Celular Android";
+  }
+  return model;
+}
+
+// Registra presença do aparelho no Firebase RTDB
+function registerDevicePresence() {
+  if (!firebaseDb) return;
+  const devRef = firebaseDb.ref("tarefas_casa/devices/" + myDeviceId);
+  devRef.update({
+    id: myDeviceId,
+    model: detectDeviceInfo(),
+    owner: deviceOwner || "Não atribuído",
+    lastSeen: Date.now()
+  });
+  
+  // Escuta se o Admin atribuiu este celular a um dono remotamente!
+  devRef.child("owner").on("value", snap => {
+    const assigned = snap.val();
+    if (assigned && assigned !== "Não atribuído" && assigned !== deviceOwner) {
+      deviceOwner = assigned;
+      localStorage.setItem(DEVICE_OWNER_KEY, assigned);
+      render(false);
+    }
+  });
+}
+
+// Renderiza a lista de celulares dentro do painel Admin
+function renderDeviceListInAdmin() {
+  const listEl = document.getElementById("admin-devices-list");
+  if (!listEl || !firebaseDb) return;
+  listEl.innerHTML = '<div style="font-size:0.85rem;color:var(--muted)">Carregando celulares conectados...</div>';
+  
+  firebaseDb.ref("tarefas_casa/devices").once("value", snap => {
+    listEl.innerHTML = "";
+    const devs = snap.val();
+    if (!devs) {
+      listEl.innerHTML = '<div style="font-size:0.85rem;color:var(--muted)">Nenhum aparelho detectado ainda.</div>';
+      return;
+    }
+    Object.values(devs).forEach(d => {
+      const row = el("div", null);
+      row.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:var(--surface-2);border-radius:10px;font-size:0.85rem";
+      
+      const isMe = (d.id === myDeviceId);
+      row.innerHTML = '<div><b>' + d.model + '</b>' + (isMe ? ' <small style="color:var(--ok)">(Este aparelho)</small>' : '') + '<div style="color:var(--muted);font-size:0.78rem">Dono atual: <b style="color:var(--p)">' + (d.owner || "Sem dono") + '</b></div></div>';
+      
+      const sel = el("select", null);
+      sel.style.cssText = "padding:4px 8px;border-radius:8px;border:1px solid var(--line);font-size:0.8rem;background:var(--surface);color:var(--ink)";
+      sel.innerHTML = '<option value="">Atribuir...</option>' + PEOPLE.map(p => '<option value="' + p + '" ' + (d.owner === p ? 'selected' : '') + '>' + p + '</option>').join("");
+      sel.addEventListener("change", (e) => {
+        const newOwner = e.target.value;
+        if (newOwner) {
+          firebaseDb.ref("tarefas_casa/devices/" + d.id + "/owner").set(newOwner);
+          if (isMe) {
+            deviceOwner = newOwner;
+            localStorage.setItem(DEVICE_OWNER_KEY, newOwner);
+            render(false);
+          }
+          alert("Celular " + d.model + " atribuído com sucesso a " + newOwner + "!");
+        }
+      });
+      
+      row.appendChild(sel);
+      listEl.appendChild(row);
+    });
+  });
+}
+
+
+/* ---------- Gerenciamento Dinâmico de Tarefas e Pessoas ---------- */
+function syncCustomDataToFirebase() {
+  if (!firebaseDb) return;
+  firebaseDb.ref("tarefas_casa/custom_config").set({
+    rows: ROWS,
+    people: PEOPLE,
+    tempo: TEMPO,
+    code: CODE,
+    apelido: APELIDO
+  });
+}
+
+function listenCustomDataFromFirebase() {
+  if (!firebaseDb) return;
+  firebaseDb.ref("tarefas_casa/custom_config").on("value", snap => {
+    const data = snap.val();
+    if (data && typeof data === "object") {
+      if (Array.isArray(data.rows)) ROWS = data.rows;
+      if (Array.isArray(data.people)) PEOPLE = data.people;
+      if (data.tempo && typeof data.tempo === "object") TEMPO = data.tempo;
+      if (data.code && typeof data.code === "object") CODE = data.code;
+      if (data.apelido && typeof data.apelido === "object") APELIDO = data.apelido;
+      render(false);
+    }
+  });
+}
+
+// Renderiza lista de pessoas no painel Admin
+function renderPeopleManagerInAdmin() {
+  const container = document.getElementById("admin-people-list");
+  if (!container) return;
+  container.innerHTML = "";
+  
+  PEOPLE.forEach(p => {
+    const item = el("div", null);
+    item.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--surface-2);border-radius:8px;font-size:0.85rem";
+    
+    const info = el("div", null);
+    const dt = el("i", "dot"); dt.style.setProperty("--dot", dotVar(p));
+    info.append(dt, " " + p + " (Apelido: " + (APELIDO[p] || p) + ")");
+    
+    const btnDel = el("button", "histlink", "Remover");
+    btnDel.style.cssText = "color:var(--late);font-size:0.75rem;padding:2px 6px";
+    btnDel.addEventListener("click", () => {
+      if (PEOPLE.length <= 1) {
+        alert("Deve haver pelo menos 1 morador na casa.");
+        return;
+      }
+      if (confirm("Deseja realmente remover " + p + " da escala da casa?")) {
+        PEOPLE = PEOPLE.filter(x => x !== p);
+        delete APELIDO[p];
+        syncCustomDataToFirebase();
+        renderPeopleManagerInAdmin();
+        render(false);
+      }
+    });
+    
+    item.append(info, btnDel);
+    container.appendChild(item);
+  });
+}
+
+function addNewPersonPrompt() {
+  const name = prompt("Nome do novo morador (ex: Lucas):");
+  if (!name || !name.trim()) return;
+  const cleanName = name.trim();
+  if (PEOPLE.includes(cleanName)) {
+    alert("Este morador já está cadastrado!");
+    return;
+  }
+  const ap = prompt("Apelido curto para os botões (ex: Lu):", cleanName.slice(0, 3));
+  PEOPLE.push(cleanName);
+  const cleanAp = (ap && ap.trim()) ? ap.trim() : cleanName.slice(0, 3);
+  APELIDO[cleanName] = cleanAp;
+  CODE[cleanAp] = cleanName;
+  syncCustomDataToFirebase();
+  renderPeopleManagerInAdmin();
+  render(false);
+  alert("Morador " + cleanName + " adicionado com sucesso!");
+}
+
+// Renderiza gerenciador de tarefas no painel Admin
+function renderTasksManagerInAdmin() {
+  const container = document.getElementById("admin-tasks-list");
+  if (!container) return;
+  container.innerHTML = "";
+  
+  // Agrupa tarefas distintas
+  const uniqueTasks = [];
+  const seen = new Set();
+  ROWS.forEach(r => {
+    if (!seen.has(r[1])) {
+      seen.add(r[1]);
+      uniqueTasks.push({ name: r[1], day: r[0], slot: r[2], time: tempoOf(r[1]) });
+    }
+  });
+
+  uniqueTasks.forEach(t => {
+    const row = el("div", null);
+    row.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:6px;padding:8px 10px;background:var(--surface-2);border-radius:10px;font-size:0.82rem";
+    
+    const details = el("div", null);
+    details.style.cssText = "flex:1;min-width:0";
+    details.innerHTML = '<div style="font-weight:700;line-height:1.2;margin-bottom:2px">' + t.name + '</div>'
+      + '<span style="color:var(--muted);font-size:0.75rem">' + t.day + ' · ' + t.slot + ' · ⏱ ' + t.time + 'min</span>';
+    
+    const actions = el("div", null);
+    actions.style.cssText = "display:flex;gap:4px;flex-shrink:0";
+    
+    const btnEdit = el("button", "histlink", "Editar");
+    btnEdit.style.cssText = "font-size:0.75rem;padding:2px 4px";
+    btnEdit.addEventListener("click", () => editTaskPrompt(t.name));
+
+    const btnDel = el("button", "histlink", "Excluir");
+    btnDel.style.cssText = "color:var(--late);font-size:0.75rem;padding:2px 4px";
+    btnDel.addEventListener("click", () => {
+      if (confirm("Deseja realmente excluir a tarefa: \"" + t.name + "\" de todos os dias da escala?")) {
+        ROWS = ROWS.filter(r => r[1] !== t.name);
+        delete TEMPO[t.name];
+        syncCustomDataToFirebase();
+        renderTasksManagerInAdmin();
+        render(false);
+      }
+    });
+
+    actions.append(btnEdit, btnDel);
+    row.append(details, actions);
+    container.appendChild(row);
+  });
+}
+
+function editTaskPrompt(taskName) {
+  const curTime = tempoOf(taskName);
+  const newTime = prompt("Tempo estimado em minutos para \"" + taskName + "\":", curTime);
+  if (newTime && !isNaN(parseInt(newTime))) {
+    TEMPO[taskName] = parseInt(newTime);
+  }
+  const newName = prompt("Novo nome para a tarefa (deixe igual para não mudar):", taskName);
+  if (newName && newName.trim() && newName.trim() !== taskName) {
+    const finalName = newName.trim();
+    ROWS.forEach(r => { if (r[1] === taskName) r[1] = finalName; });
+    TEMPO[finalName] = TEMPO[taskName];
+    delete TEMPO[taskName];
+  }
+  syncCustomDataToFirebase();
+  renderTasksManagerInAdmin();
+  render(false);
+}
+
+function addNewTaskPrompt() {
+  const name = prompt("Nome da nova tarefa:");
+  if (!name || !name.trim()) return;
+  const finalName = name.trim();
+  
+  const day = prompt("Qual dia da semana? (Seg, Ter, Qua, Qui, Sex, Sáb ou Dom):", "Seg");
+  const validDay = DIAS.includes(day) ? day : "Seg";
+
+  const slot = prompt("Período? (Manhã, Tarde, Noite ou -):", "Manhã");
+  const validSlot = ["Manhã","Tarde","Noite","-"].includes(slot) ? slot : "Manhã";
+
+  const timeStr = prompt("Tempo estimado em minutos (ex: 15, 30, 45):", "20");
+  const finalTime = parseInt(timeStr) || 20;
+
+  const resp = prompt("Quem é o responsável? Digite o apelido (ex: " + Object.keys(CODE).join(", ") + ", ou Rê e Thi, ou Todos):", APELIDO[PEOPLE[0]] || "Todos");
+  const finalResp = resp && resp.trim() ? resp.trim() : "Todos";
+
+  // Adiciona a tarefa na escala das 4 semanas
+  ROWS.push([validDay, finalName, validSlot, [finalResp, finalResp, finalResp, finalResp]]);
+  TEMPO[finalName] = finalTime;
+
+  syncCustomDataToFirebase();
+  renderTasksManagerInAdmin();
+  render(false);
+  alert("Tarefa \"" + finalName + "\" criada e sincronizada com sucesso!");
+}
+
+// Inicializa a conexão com a nuvem automaticamente antes de renderizar a interface
+initFirebase();
+render(true);
+
+function syncTaskToCloud(key, value) {
+  if (!firebaseDb || isRemoteUpdating) return;
+  // Firebase não aceita alguns caracteres em chaves como '.', '#', '$', '/', '[', ']'
+  const safePath = "tarefas_casa/done/" + encodeURIComponent(key).replace(/\./g, "%2E");
+  try {
+    if (value) {
+      firebaseDb.ref(safePath).set(value);
+    } else {
+      firebaseDb.ref(safePath).remove();
+    }
+  } catch (err) {
+    console.error("Erro ao sincronizar com nuvem:", err);
+  }
+}
+
+// Modal de Configuração de Sincronização
+function openSyncModal() {
+  const modal = document.getElementById("sync-modal");
+  const input = document.getElementById("fb-config-input");
+  const current = localStorage.getItem(FB_KEY) || "";
+  input.value = current;
+  modal.hidden = false;
+}
+function closeSyncModal() {
+  document.getElementById("sync-modal").hidden = true;
+}
+
+/* ==========================================================================
+   ALERTA ESTILO DEFESA CIVIL (SIRENE + VIBRAÇÃO + POPUP A CADA 10 MIN)
+   ========================================================================== */
+let audioCtx = null;
+let snoozeUntil = 0; // timestamp até quando o alerta está silenciado
+
+function getAudioContext() {
+  if (!audioCtx) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) audioCtx = new AudioContextClass();
+  }
+  if (audioCtx && audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+// Desbloqueia áudio no primeiro toque na tela (exigência do iOS Safari e Android)
+window.addEventListener("touchstart", () => getAudioContext(), { once: true, passive: true });
+window.addEventListener("click", () => getAudioContext(), { once: true, passive: true });
+
+function playCivilDefenseAlarm() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    // Sirene de alarme duplo tom (Frequências padrão de alerta de emergência 853 Hz e 960 Hz)
+    [853, 960].forEach(freq => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(freq, now);
+      
+      // Pulsos rápidos intermitentes (3 bips de emergência)
+      gain.gain.setValueAtTime(0, now);
+      for (let i = 0; i < 4; i++) {
+        const t = now + i * 0.35;
+        gain.gain.setValueAtTime(0.28, t);
+        gain.gain.setValueAtTime(0.28, t + 0.22);
+        gain.gain.setValueAtTime(0, t + 0.23);
+      }
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 1.5);
+    });
+  } catch (e) {
+    console.warn("Áudio não pôde tocar:", e);
+  }
+}
+
+function triggerCivilDefenseAlert(lateTasks) {
+  if (Date.now() < snoozeUntil || !lateTasks.length) return;
+  
+  // Toca alarme sonoro estridente
+  playCivilDefenseAlarm();
+  
+  // Vibra o celular (Android suporta nativamente)
+  if ("vibrate" in navigator) {
+    try { navigator.vibrate([400, 200, 400, 200, 800]); } catch(e){}
+  }
+  
+  // Notificação push do sistema (se concedido)
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      new Notification("🚨 ALERTA DA DEFESA CIVIL DOMÉSTICA", {
+        body: lateTasks.length + " tarefa(s) atrasada(s)! Verifique agora.",
+        icon: "https://img.icons8.com/color/192/siren.png",
+        requireInteraction: true
+      });
+    } catch(e){}
+  }
+  
+  // Exibe o Pop-up na tela
+  const overlay = document.getElementById("civil-alert");
+  const listEl = document.getElementById("civil-alert-items");
+  listEl.innerHTML = "";
+  
+  lateTasks.forEach(t => {
+    const li = el("li", "civil-alert-item");
+    const nameSpan = el("span", "name", CURTO[t.name] || t.name);
+    const whoSpan = el("span", "who", t.who.map(p => APELIDO[p] || p).join(", "));
+    li.append(nameSpan, whoSpan);
+    listEl.appendChild(li);
+  });
+  
+  overlay.hidden = false; overlay.style.setProperty("display", "grid", "important");
+}
+
+function closeCivilAlert(snoozeMinutes) {
+  const elAlert = document.getElementById("civil-alert");
+  if (elAlert) {
+    elAlert.hidden = true;
+    elAlert.style.setProperty("display", "none", "important");
+  }
+  if (snoozeMinutes > 0) {
+    snoozeUntil = Date.now() + snoozeMinutes * 60 * 1000;
+  }
+}
+window.closeCivilAlert = closeCivilAlert;
+
+// Listeners diretos via addEventListener para garantir resposta ao toque
+setTimeout(() => {
+  const b1 = document.getElementById("btn-snooze-10");
+  const b2 = document.getElementById("btn-resolve-now");
+  if (b1) b1.addEventListener("click", () => closeCivilAlert(10));
+  if (b2) b2.addEventListener("click", () => closeCivilAlert(0));
+}, 100);
+
+function checkCivilAlertLoop() {
+  // 1. Ignora se estiver sob modo silêncio geral/férias ativo
+  if (silenceState.active && silenceState.until > Date.now()) return;
+  if (Date.now() < snoozeUntil) return;
+
+  // 2. O alerta TOCA E APARECE APENAS PARA O DONO DESTE CELULAR (deviceOwner)
+  // Mesmo se ele estiver navegando e olhando as tarefas da Gigi, Lipe ou Renata, o alarme é SEMPRE dele!
+  const myOwner = deviceOwner || store.person || person;
+  if (!myOwner || !PEOPLE.includes(myOwner)) return;
+
+  const d = today;
+  const allTasks = tasksOn(d);
+
+  // 3. Filtra ESTRITAMENTE as tarefas atrasadas e pendentes do DONO deste aparelho
+  const ownerLateTasks = allTasks.filter(t => {
+    return t.who.includes(myOwner) && isLate(d, t.quando) && !isDone(myOwner, d, t.name);
+  });
+    
+  if (ownerLateTasks.length > 0) {
+    triggerCivilDefenseAlert(ownerLateTasks);
+  }
+}
+
+/* ==========================================================================
+   DASHBOARD DE CUMPRIMENTO SEMANAL COM %
+   ========================================================================== */
+function renderDashboard(main) {
+  // Coleta dados da semana atual (WIN)
+  let houseTotal = 0, houseDone = 0, houseLate = 0;
+  
+  const pStats = {};
+  PEOPLE.forEach(p => { pStats[p] = { total: 0, done: 0, late: 0 }; });
+  
+  const slotStats = { "Manhã": { total: 0, done: 0 }, "Tarde": { total: 0, done: 0 }, "Noite": { total: 0, done: 0 }, "-": { total: 0, done: 0 } };
+  const dayStats = WIN.map(d => ({ date: d, dia: diaOf(d), total: 0, done: 0, late: 0 }));
+
+  WIN.forEach((d, dayIdx) => {
+    const tasks = tasksOn(d);
+    tasks.forEach(t => {
+      t.who.forEach(p => {
+        houseTotal++;
+        pStats[p].total++;
+        if (slotStats[t.quando]) slotStats[t.quando].total++;
+        dayStats[dayIdx].total++;
+
+        const done = isDone(p, d, t.name);
+        const late = !done && isLate(d, t.quando);
+
+        if (done) {
+          houseDone++;
+          pStats[p].done++;
+          if (slotStats[t.quando]) slotStats[t.quando].done++;
+          dayStats[dayIdx].done++;
+        }
+        if (late) {
+          houseLate++;
+          pStats[p].late++;
+          dayStats[dayIdx].late++;
+        }
+      });
+    });
+  });
+
+  const housePct = houseTotal ? Math.round((houseDone / houseTotal) * 100) : 0;
+
+  // 1. Card Geral da Casa
+  const cardGeneral = el("section", "dash-card");
+  const headGeneral = el("div", "dash-title", "Cumprimento Geral da Casa");
+  const bigMetric = el("div", "dash-big-metric");
+  bigMetric.innerHTML = '<span class="pct">' + housePct + '%</span><span class="sub">' + houseDone + ' de ' + houseTotal + ' concluídas</span>';
+  
+  const pbarGlobal = el("div", "pbar");
+  const pbarFill = el("div", "pbar-fill");
+  pbarFill.style.width = housePct + "%";
+  pbarFill.style.background = housePct >= 80 ? "var(--ok)" : housePct >= 50 ? "var(--c-thiago)" : "var(--late)";
+  pbarGlobal.appendChild(pbarFill);
+
+  const statsRow = el("div", "dash-stat-row");
+  statsRow.innerHTML = '<span>Pendentes: <b>' + (houseTotal - houseDone) + '</b></span><span>Atrasadas: <b style="color:var(--late)">' + houseLate + '</b></span>';
+  
+  cardGeneral.append(headGeneral, bigMetric, pbarGlobal, statsRow);
+  main.appendChild(cardGeneral);
+
+  // 2. Cumprimento Individual por Morador
+  const cardPeople = el("section", "dash-card");
+  cardPeople.appendChild(el("h3", "dash-title", "Cumprimento por Morador"));
+  
+  const grid = el("div", "dash-grid");
+  PEOPLE.forEach(p => {
+    const s = pStats[p];
+    const pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
+    const pCard = el("div", "person-card");
+    pCard.style.setProperty("--card-color", dotVar(p));
+
+    const head = el("div", "person-card-header");
+    const nameSpan = el("div", "name");
+    const dt = el("i", "dot"); dt.style.setProperty("--dot", dotVar(p));
+    nameSpan.append(dt, p);
+    const pctSpan = el("div", "pct-badge", pct + "%");
+    pctSpan.style.color = dotVar(p);
+    head.append(nameSpan, pctSpan);
+
+    const pb = el("div", "pbar");
+    const pf = el("div", "pbar-fill");
+    pf.style.width = pct + "%";
+    pf.style.background = dotVar(p);
+    pb.appendChild(pf);
+
+    const detail = el("div", "dash-stat-row");
+    detail.innerHTML = '<span>' + s.done + ' de ' + s.total + ' feitas</span>' + (s.late ? '<span style="color:var(--late);font-weight:700">' + s.late + ' atrasada(s)</span>' : '<span style="color:var(--ok)">Em dia ✓</span>');
+
+    pCard.append(head, pb, detail);
+    grid.appendChild(pCard);
+  });
+  cardPeople.appendChild(grid);
+  main.appendChild(cardPeople);
+
+  // 3. Cumprimento por Dia da Semana
+  const cardDays = el("section", "dash-card");
+  cardDays.appendChild(el("h3", "dash-title", "Desempenho por Dia"));
+  const daysList = el("div", "dash-days-list");
+  daysList.style.display = "grid";
+  daysList.style.gap = "8px";
+
+  dayStats.forEach(ds => {
+    const pct = ds.total ? Math.round((ds.done / ds.total) * 100) : 0;
+    const row = el("div", "day-bar-row");
+    const isToday = ds.date.getTime() === today.getTime();
+    row.innerHTML = '<span class="dayname" ' + (isToday ? 'style="color:var(--p);font-weight:700"' : '') + '>' + ds.dia + (isToday ? ' (hoje)' : '') + '</span>';
+    
+    const pb = el("div", "pbar");
+    const pf = el("div", "pbar-fill");
+    pf.style.width = pct + "%";
+    pf.style.background = pct === 100 ? "var(--ok)" : isToday ? "var(--p)" : "var(--muted)";
+    pb.appendChild(pf);
+    
+    const pctSpan = el("span", "pct", pct + "%");
+    if (pct === 100) pctSpan.style.color = "var(--ok)";
+    row.append(pb, pctSpan);
+    daysList.appendChild(row);
+  });
+  cardDays.appendChild(daysList);
+  main.appendChild(cardDays);
+
+  // 4. Ações de Alerta & Acesso dos Pais (Admin)
+  const cardActions = el("section", "dash-card");
+  const actHead = el("div", "dash-title");
+  actHead.innerHTML = '<span>Central de Alertas</span>';
+  
+  // Botão discreto dos pais (com cadeado)
+  const lockBtn = el("button", "admin-badge-lock", "🔒 Admin");
+  lockBtn.type = "button";
+  lockBtn.addEventListener("click", () => {
+    openPinModal();
+  });
+  actHead.appendChild(lockBtn);
+  cardActions.appendChild(actHead);
+
+  const btnTestAlert = el("button", "btn ghost", "🚨 Testar Alerta da Defesa Civil");
+  btnTestAlert.type = "button";
+  btnTestAlert.addEventListener("click", () => {
+    const myP = store.person || person || "Thiago";
+    triggerCivilDefenseAlert([
+      { name: "Passear com a Pretinha (Teste de Alerta)", who: [myP], quando: "Manhã" }
+    ]);
+  });
+  // Seletor de Dono do Celular
+  const ownerBox = el("div", null);
+  ownerBox.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface-2);padding:10px 14px;border-radius:12px;font-size:0.88rem";
+  ownerBox.innerHTML = '<span>Dono deste aparelho: <b>' + (deviceOwner || "Não definido") + '</b></span>';
+  const btnChangeOwner = el("button", "btn ghost", "Trocar");
+  btnChangeOwner.style.cssText = "padding:4px 10px;font-size:0.8rem";
+  btnChangeOwner.addEventListener("click", () => {
+    const chosen = prompt("Quem é o dono principal deste celular?\nDigite exatamente: Renata, Thiago, Giovana ou Felipe", deviceOwner || "Thiago");
+    if (chosen && PEOPLE.includes(chosen.trim())) {
+      deviceOwner = chosen.trim();
+      localStorage.setItem(DEVICE_OWNER_KEY, deviceOwner);
+      alert("Aparelho vinculado a " + deviceOwner + "! Os alertas sonoros e vibrações serão apenas das tarefas de " + deviceOwner + ".");
+      render(false);
+    }
+  });
+  ownerBox.appendChild(btnChangeOwner);
+  cardActions.appendChild(ownerBox);
+
+  const notifyGranted = ("Notification" in window && Notification.permission === "granted");
+  const btnReqNotify = el("button", "btn " + (notifyGranted ? "ghost" : ""), notifyGranted ? "🔔 Notificações Ativas ✓" : "🔔 Notificações Obrigatórias (Ativar)");
+  btnReqNotify.type = "button";
+  btnReqNotify.addEventListener("click", () => {
+    if ("Notification" in window) {
+      Notification.requestPermission().then(perm => {
+        if (perm === "granted") alert("Notificações ativadas com sucesso!");
+        else alert("Atenção: As notificações são obrigatórias para os alertas. Ative nas permissões do seu navegador.");
+        render(false);
+      });
+    } else {
+      alert("Navegador sem suporte a Web Notifications.");
+    }
+  });
+
+  cardActions.append(btnTestAlert, btnReqNotify);
+
+  // Se autenticado como Admin, exibe opções adicionais
+  if (isAdminAuthenticated) {
+    const adminBox = el("div", "admin-panel");
+    adminBox.innerHTML = '<div style="font-weight:700;font-size:0.95rem">⚙️ Painel Admin</div>'
+      + '<div style="font-size:0.85rem;color:var(--muted)">Status do Modo Silêncio: <b>' + (silenceState.active && silenceState.until > Date.now() ? "ATIVADO (Alertas Pausados)" : "Desativado (Normal)") + '</b></div>';
+    
+    const btnSilenceCfg = el("button", "btn ghost", "🔕 Configurar Modo Férias / Silêncio");
+    btnSilenceCfg.type = "button";
+    btnSilenceCfg.addEventListener("click", openSilenceModal);
+    adminBox.appendChild(btnSilenceCfg);
+    cardActions.appendChild(adminBox);
+  }
+
+  main.appendChild(cardActions);
+}
+
+
+// Solicitação OBRIGATÓRIA de notificações ao carregar ou no primeiro toque
+function ensureNotificationPermission() {
+  if ("Notification" in window) {
+    if (Notification.permission === "default") {
+      Notification.requestPermission().then(perm => {
+        if (perm === "denied") {
+          console.warn("Notificações bloqueadas pelo usuário.");
+        }
+      });
+    }
+  }
+}
+window.addEventListener("DOMContentLoaded", ensureNotificationPermission);
+window.addEventListener("click", () => {
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+}, { passive: true });
+
+setInterval(checkCivilAlertLoop, 600000);
+
+  </script>
+</body>
+</html>
