@@ -919,6 +919,16 @@ document.getElementById("cf-yes").addEventListener("click", () => closeCf(true))
 document.getElementById("cf-no").addEventListener("click", () => closeCf(false));
 cf.addEventListener("click", e => { if (e.target === cf) closeCf(false); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !cf.hidden) closeCf(false); });
+function syncTaskToCloud(taskKey, ts) {
+  // Synchronize task completion state with Firebase.
+  // If ts is a timestamp (truthy) we mark the task as checked, otherwise we remove the check.
+  if (ts) {
+    db.ref('tasks/' + taskKey).update({checked: true}).catch(err => console.error('Erro ao sync task:', err));
+  } else {
+    db.ref('tasks/' + taskKey).update({checked: false}).catch(err => console.error('Erro ao sync task:', err));
+  }
+}
+
 function tap(p, d, name, label, from, quando){
   const k = keyOf(p, d, name);
   const isCurrentlyLate = isLate(d, quando);
@@ -1667,11 +1677,23 @@ function triggerCivilDefenseAlert(lateTasks) {
   
   lateTasks.forEach(t => {
     const li = el("li", "civil-alert-item");
+    // Store the Firebase key for later resolution
+    if (t.key) li.dataset.key = t.key; // fallback if key missing
+<<<<<<< HEAD
+=======
     const nameSpan = el("span", "name", CURTO[t.name] || t.name);
     const whoSpan = el("span", "who", t.who.map(p => APELIDO[p] || p).join(", "));
     li.append(nameSpan, whoSpan);
     listEl.appendChild(li);
   });
+    const li = el("li", "civil-alert-item");
+>>>>>>> 6263716 (Fix: late‑task modal ‘Sim’ button now marks task in Firebase)
+    const nameSpan = el("span", "name", CURTO[t.name] || t.name);
+    const whoSpan = el("span", "who", t.who.map(p => APELIDO[p] || p).join(", "));
+    li.append(nameSpan, whoSpan);
+    listEl.appendChild(li);
+  });
+
   
   overlay.hidden = false; overlay.style.setProperty("display", "grid", "important");
 }
@@ -1936,5 +1958,17 @@ window.addEventListener("click", () => {
 setInterval(checkCivilAlertLoop, 600000);
 
   </script>
+<<<<<<< HEAD
+=======
+<div id="footer-info" class="footer" style="text-align:center;margin-top:16px;color:var(--muted)"></div>
+<script>
+  // Exibe versão e autor a partir das meta‑tags
+  const versionMeta = document.querySelector('meta[name="app-version"]').getAttribute('content');
+  const authorMeta = document.querySelector('meta[name="author"]').getAttribute('content');
+  const footer = document.getElementById('footer-info');
+  if (footer) footer.innerText = `Version ${versionMeta} | ${authorMeta}`;
+</script>
+<script src="app.js"></script>
+>>>>>>> 365ecbd (Add footer version display and task toggle logic)
 </body>
 </html>
