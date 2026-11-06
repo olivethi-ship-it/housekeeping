@@ -1,4 +1,4 @@
-# homework — Regras para Agentes e LLMs
+# housekeeping — Regras para Agentes e LLMs
 
 Leia este arquivo antes de iniciar qualquer trabalho. Ele é conciso e define o fluxo para qualquer LLM (Antigravity, Claude Code, etc.) trabalhar sem estourar limites de contexto ou tokens.
 
@@ -33,6 +33,6 @@ Antes de começar, verifique a primeira linha de `docs/retomada.md` (`Em execuç
 ## 5. Deploy e Publicação
 - Para publicar alterações no ar:
   ```powershell
-  cd C:\Users\thiag\homework
+  cd C:\Users\thiag\housekeeping
   npx firebase-tools deploy --only hosting
   ```

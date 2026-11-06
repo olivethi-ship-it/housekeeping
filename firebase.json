@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "predeploy": "node tests/smoke.mjs",
     "public": "public",
     "ignore": [
       "firebase.json",
@@ -10,6 +11,17 @@
       {
         "source": "**",
         "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
       }
     ]
   }

@@ -3,10 +3,9 @@
 <head>
   <meta charset="utf-8">
   <title>Tarefas da Casa</title>
-  <meta name="app-version" content="v1.2.0">
+  <meta name="app-version" content="v1.2.1">
   <meta name="author" content="© 2026 olivethi">
-  <meta http-equiv="refresh" content="300">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Tarefas Casa">
@@ -692,12 +691,6 @@ const PIN_STORAGE_KEY = "tarefas_admin_pin_auth";
 let adminPin = "1234"; // Padrão inicial
 let isAdminAuthenticated = false;
 let currentPinInput = "";
-let pendingAdminAction = null;
-
-function openPinModalForAction(callback) {
-  pendingAdminAction = callback;
-  openPinModal();
-}
 let silenceState = { active: false, until: 0, reason: "" };
 
 // Sessão de admin NÃO persiste: exige digitação do PIN a CADA acesso
@@ -738,15 +731,9 @@ function verifyPin() {
   if (currentPinInput === adminPin) {
     isAdminAuthenticated = true;
     closePinModal();
-    if (pendingAdminAction) {
-      const act = pendingAdminAction;
-      pendingAdminAction = null;
-      act();
-    } else {
-      document.getElementById("silence-modal").hidden = false;
-      document.getElementById("silence-modal").style.setProperty("display", "grid", "important");
-      renderDeviceListInAdmin(); renderPeopleManagerInAdmin(); renderTasksManagerInAdmin();
-    }
+    document.getElementById("silence-modal").hidden = false;
+    document.getElementById("silence-modal").style.setProperty("display", "grid", "important");
+    renderDeviceListInAdmin(); renderPeopleManagerInAdmin(); renderTasksManagerInAdmin();
   } else {
     alert("PIN incorreto!");
     currentPinInput = "";
@@ -845,8 +832,8 @@ function tasksOn(d){
   ROWS.forEach(r => {
     if (r[0] !== dia) return;
     const code = r[3][c]; if (code === "—") return;
-    const who = code === "Rê e Thi" ? ["Renata","Thiago"] : code === "Todos" ? PEOPLE.slice() : [CODE[code]];
-    out.push({name:r[1], quando:r[2], who});
+    const who = (code === "Rê e Thi" ? ["Renata","Thiago"] : code === "Todos" ? PEOPLE.slice() : [CODE[code]]).filter(p => PEOPLE.includes(p));
+    if (who.length) out.push({name:r[1], quando:r[2], who});   // ignora responsável removido ou apelido desconhecido
   });
   return out;
 }
@@ -871,6 +858,9 @@ if (store.v !== 2) {   // converte marcações antigas "pessoa|semana|dia|tarefa
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(store)); } catch(e) {} }
 save();
 const keyOf = (p, d, name) => p + "|" + iso(d) + "|" + indText(p, name);
+// O Firebase proíbe . # $ / [ ] em chaves: grava codificado na nuvem e usa decodificado no app
+const cloudKey = k => encodeURIComponent(k).replace(/\./g, "%2E");
+const localKey = k => { try { return decodeURIComponent(k); } catch(e) { return k; } };
 const isDone = (p, d, name) => !!store.done[keyOf(p, d, name)];
 const isLate = (d, quando) => Date.now() > d.getTime() + DEADLINE[quando] * 3600000;
 
@@ -895,6 +885,7 @@ let hist = null;   // {week: segunda-feira, who: "Família" | nome}
 const dotVar = p => "var(--c-" + p.toLowerCase() + ")";
 const tintVar = p => "var(--t-" + p.toLowerCase() + ")";
 const onVar = p => "var(--o-" + p.toLowerCase() + ")";
+const esc = s => String(s).replace(/[&<>"']/g, c => "&#" + c.charCodeAt(0) + ";");   // dados da nuvem em innerHTML
 function el(tag, cls, text){ const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function chip(parent, txt, cls){ parent.appendChild(el("span", "chip " + (cls||""), txt)); }
 
@@ -919,23 +910,9 @@ document.getElementById("cf-yes").addEventListener("click", () => closeCf(true))
 document.getElementById("cf-no").addEventListener("click", () => closeCf(false));
 cf.addEventListener("click", e => { if (e.target === cf) closeCf(false); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !cf.hidden) closeCf(false); });
-function syncTaskToCloud(taskKey, ts) {
-  // Synchronize task completion state with Firebase.
-  // If ts is a timestamp (truthy) we mark the task as checked, otherwise we remove the check.
-  if (ts) {
-    db.ref('tasks/' + taskKey).update({checked: true}).catch(err => console.error('Erro ao sync task:', err));
-  } else {
-    db.ref('tasks/' + taskKey).update({checked: false}).catch(err => console.error('Erro ao sync task:', err));
-  }
-}
 
-function tap(p, d, name, label, from, quando){
+function tap(p, d, name, label, from){
   const k = keyOf(p, d, name);
-  const isCurrentlyLate = isLate(d, quando);
-  
-// Allow any user to mark task completion, even if late. UI will reflect status.
-
-
   const run = () => {
     if (store.done[k]) { delete store.done[k]; syncTaskToCloud(k, null); }
     else { store.done[k] = Date.now(); syncTaskToCloud(k, store.done[k]); }
@@ -1056,7 +1033,7 @@ function personDay(p, d, opts){
     if (lt) late++;
     const li = el("li");
     const row = el(opts.readOnly ? "div" : "button", "task" + (lt ? " is-late" : ""));
-    if (!opts.readOnly) { row.type = "button"; row.setAttribute("role", "checkbox"); row.addEventListener("click", () => tap(p, d, t.name, label, row, t.quando)); }
+    if (!opts.readOnly) { row.type = "button"; row.setAttribute("role", "checkbox"); row.addEventListener("click", () => tap(p, d, t.name, label, row)); }
     else row.style.cursor = "default";
     row.setAttribute("aria-checked", String(on));
     row.innerHTML = '<span class="box">' + CHECK + '</span>';
@@ -1111,7 +1088,7 @@ function familyDay(d, opts){
         const on = isDone(p, d, t.name); totalMarks++; 
         if (on) { marks++; dayDoneMin += min; } else all = false;
         const b = el(opts.readOnly ? "span" : "button", "who-t");
-        if (!opts.readOnly) { b.type = "button"; b.addEventListener("click", () => tap(p, d, t.name, (CURTO[t.name] || t.name) + " (" + APELIDO[p] + ")", b, t.quando)); }
+        if (!opts.readOnly) { b.type = "button"; b.addEventListener("click", () => tap(p, d, t.name, (CURTO[t.name] || t.name) + " (" + APELIDO[p] + ")", b)); }
         b.setAttribute("aria-pressed", String(on));
         b.setAttribute("aria-label", p + ": " + t.name + (on ? " (feito)" : " (pendente)"));
         b.style.setProperty("--dot", dotVar(p)); b.style.setProperty("--tint", tintVar(p)); b.style.setProperty("--on-dot", onVar(p));
@@ -1190,7 +1167,7 @@ function renderMain(scroll){
   share.append(el("h3", null, "Avisar a família"), el("p", null, "Copia um resumo do que já foi feito e do que está pendente para colar no WhatsApp da família."));
   const btn = el("button", "btn", "Copiar resumo"); btn.type = "button"; const ta = el("textarea"); ta.readOnly = true; ta.hidden = true; ta.setAttribute("aria-label", "Resumo");
   btn.addEventListener("click", () => copySummary(btn, ta)); share.append(btn, ta); main.appendChild(share);
-  main.appendChild(el("p", "note", "As marcações ficam salvas neste celular, no navegador em que você abriu a página."));
+  main.appendChild(el("p", "note", "As marcações são sincronizadas entre todos os aparelhos da família."));
   addFooter(main);
   if (scroll) { const t = document.getElementById("d-" + iso(today)); if (t) requestAnimationFrame(() => t.scrollIntoView({block:"start"})); else window.scrollTo(0, 0); }
 }
@@ -1272,14 +1249,13 @@ function initFirebase() {
 
     // Escuta tarefas feitas
     firebaseDb.ref("tarefas_casa/done").on("value", snapshot => {
-      const val = snapshot.val();
-      if (val && typeof val === "object") {
-        isRemoteUpdating = true;
-        store.done = val;
-        save();
-        render(false);
-        isRemoteUpdating = false;
-      }
+      const val = snapshot.val() || {};   // vazio = última marcação removida
+      isRemoteUpdating = true;
+      store.done = {};
+      Object.keys(val).forEach(k => { store.done[localKey(k)] = val[k]; });
+      save();
+      render(false);
+      isRemoteUpdating = false;
     });
 
     // Escuta modo silêncio sincronizado entre todos os aparelhos
@@ -1337,6 +1313,7 @@ function registerDevicePresence() {
   });
   
   // Escuta se o Admin atribuiu este celular a um dono remotamente!
+  devRef.child("owner").off("value");   // chamada a cada reconexão: não acumula escutas
   devRef.child("owner").on("value", snap => {
     const assigned = snap.val();
     if (assigned && assigned !== "Não atribuído" && assigned !== deviceOwner) {
@@ -1365,11 +1342,11 @@ function renderDeviceListInAdmin() {
       row.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:var(--surface-2);border-radius:10px;font-size:0.85rem";
       
       const isMe = (d.id === myDeviceId);
-      row.innerHTML = '<div><b>' + d.model + '</b>' + (isMe ? ' <small style="color:var(--ok)">(Este aparelho)</small>' : '') + '<div style="color:var(--muted);font-size:0.78rem">Dono atual: <b style="color:var(--p)">' + (d.owner || "Sem dono") + '</b></div></div>';
+      row.innerHTML = '<div><b>' + esc(d.model) + '</b>' + (isMe ? ' <small style="color:var(--ok)">(Este aparelho)</small>' : '') + '<div style="color:var(--muted);font-size:0.78rem">Dono atual: <b style="color:var(--p)">' + esc(d.owner || "Sem dono") + '</b></div></div>';
       
       const sel = el("select", null);
       sel.style.cssText = "padding:4px 8px;border-radius:8px;border:1px solid var(--line);font-size:0.8rem;background:var(--surface);color:var(--ink)";
-      sel.innerHTML = '<option value="">Atribuir...</option>' + PEOPLE.map(p => '<option value="' + p + '" ' + (d.owner === p ? 'selected' : '') + '>' + p + '</option>').join("");
+      sel.innerHTML = '<option value="">Atribuir...</option>' + PEOPLE.map(p => '<option value="' + esc(p) + '" ' + (d.owner === p ? 'selected' : '') + '>' + esc(p) + '</option>').join("");
       sel.addEventListener("change", (e) => {
         const newOwner = e.target.value;
         if (newOwner) {
@@ -1404,6 +1381,7 @@ function syncCustomDataToFirebase() {
 
 function listenCustomDataFromFirebase() {
   if (!firebaseDb) return;
+  firebaseDb.ref("tarefas_casa/custom_config").off("value");   // chamada a cada reconexão: não acumula escutas
   firebaseDb.ref("tarefas_casa/custom_config").on("value", snap => {
     const data = snap.val();
     if (data && typeof data === "object") {
@@ -1493,8 +1471,8 @@ function renderTasksManagerInAdmin() {
     
     const details = el("div", null);
     details.style.cssText = "flex:1;min-width:0";
-    details.innerHTML = '<div style="font-weight:700;line-height:1.2;margin-bottom:2px">' + t.name + '</div>'
-      + '<span style="color:var(--muted);font-size:0.75rem">' + t.day + ' · ' + t.slot + ' · ⏱ ' + t.time + 'min</span>';
+    details.innerHTML = '<div style="font-weight:700;line-height:1.2;margin-bottom:2px">' + esc(t.name) + '</div>'
+      + '<span style="color:var(--muted);font-size:0.75rem">' + esc(t.day) + ' · ' + esc(t.slot) + ' · ⏱ ' + esc(t.time) + 'min</span>';
     
     const actions = el("div", null);
     actions.style.cssText = "display:flex;gap:4px;flex-shrink:0";
@@ -1572,8 +1550,7 @@ render(true);
 
 function syncTaskToCloud(key, value) {
   if (!firebaseDb || isRemoteUpdating) return;
-  // Firebase não aceita alguns caracteres em chaves como '.', '#', '$', '/', '[', ']'
-  const safePath = "tarefas_casa/done/" + encodeURIComponent(key).replace(/\./g, "%2E");
+  const safePath = "tarefas_casa/done/" + cloudKey(key);
   try {
     if (value) {
       firebaseDb.ref(safePath).set(value);
@@ -1677,17 +1654,6 @@ function triggerCivilDefenseAlert(lateTasks) {
   
   lateTasks.forEach(t => {
     const li = el("li", "civil-alert-item");
-    // Store the Firebase key for later resolution
-    if (t.key) li.dataset.key = t.key; // fallback if key missing
-<<<<<<< HEAD
-=======
-    const nameSpan = el("span", "name", CURTO[t.name] || t.name);
-    const whoSpan = el("span", "who", t.who.map(p => APELIDO[p] || p).join(", "));
-    li.append(nameSpan, whoSpan);
-    listEl.appendChild(li);
-  });
-    const li = el("li", "civil-alert-item");
->>>>>>> 6263716 (Fix: late‑task modal ‘Sim’ button now marks task in Firebase)
     const nameSpan = el("span", "name", CURTO[t.name] || t.name);
     const whoSpan = el("span", "who", t.who.map(p => APELIDO[p] || p).join(", "));
     li.append(nameSpan, whoSpan);
@@ -1887,7 +1853,7 @@ function renderDashboard(main) {
   // Seletor de Dono do Celular
   const ownerBox = el("div", null);
   ownerBox.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface-2);padding:10px 14px;border-radius:12px;font-size:0.88rem";
-  ownerBox.innerHTML = '<span>Dono deste aparelho: <b>' + (deviceOwner || "Não definido") + '</b></span>';
+  ownerBox.innerHTML = '<span>Dono deste aparelho: <b>' + esc(deviceOwner || "Não definido") + '</b></span>';
   const btnChangeOwner = el("button", "btn ghost", "Trocar");
   btnChangeOwner.style.cssText = "padding:4px 10px;font-size:0.8rem";
   btnChangeOwner.addEventListener("click", () => {
@@ -1956,10 +1922,9 @@ window.addEventListener("click", () => {
 }, { passive: true });
 
 setInterval(checkCivilAlertLoop, 600000);
+setTimeout(checkCivilAlertLoop, 5000);   // primeira checagem logo ao abrir, após carregar as marcações da nuvem
 
   </script>
-<<<<<<< HEAD
-=======
 <div id="footer-info" class="footer" style="text-align:center;margin-top:16px;color:var(--muted)"></div>
 <script>
   // Exibe versão e autor a partir das meta‑tags
@@ -1968,7 +1933,5 @@ setInterval(checkCivilAlertLoop, 600000);
   const footer = document.getElementById('footer-info');
   if (footer) footer.innerText = `Version ${versionMeta} | ${authorMeta}`;
 </script>
-<script src="app.js"></script>
->>>>>>> 365ecbd (Add footer version display and task toggle logic)
 </body>
 </html>
