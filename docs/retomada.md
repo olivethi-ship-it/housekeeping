@@ -3,7 +3,7 @@ Em execução por: ninguém
 # Retomada do Projeto — housekeeping
 
 ## Estado atual (2026-11-06)
-- **Versão:** v1.2.1 em produção: https://casa-tarefas-ab1f5.web.app
+- **Versão:** v1.3.0 em produção: https://casa-tarefas-ab1f5.web.app
 - **Pasta oficial:** `C:\Users\thiag\housekeeping`. A pasta `homework` é antiga e não deve receber trabalho.
 - **Repositório:** https://github.com/olivethi-ship-it/housekeeping (público), branch `main`.
 - **Código:** `public/index.html` é o app inteiro. `tests/smoke.mjs` roda no predeploy e bloqueia o deploy se falhar.
@@ -13,6 +13,9 @@ Em execução por: ninguém
 - Marcações vindas da nuvem agora são decodificadas e aparecem na tela.
 - Removidos `public/app.js` (quebrado e sem uso) e o refresh de 5 min, que impedia o alerta de 10 min.
 - Alerta checa 5 s após abrir o app; HTML publicado com `Cache-Control: no-cache`.
+- Admin (v1.3.0): corrigido o salvamento de `custom_config`, que falhava por chaves com `/` em `tempo`. Isso afetava editar, criar e excluir tarefas e moradores.
+- Admin (v1.3.0): nova seção "Associar Tarefas às Pessoas", por dia e por semana do ciclo. O modal passou a se chamar Painel Admin.
+- O primeiro salvamento real grava `custom_config` e passa a valer para todos os aparelhos. Conferir no uso real.
 
 ## Pendências (dívida técnica)
 1. **Segurança, prioridade alta:** o Realtime Database aceita leitura sem login e o app não tem autenticação; logo, a escrita também é aberta. `admin_pin` fica nesse banco, então o PIN é só uma barreira de tela. Resolver exige Firebase Auth (ex.: anônimo) e regras versionadas.
@@ -21,4 +24,4 @@ Em execução por: ninguém
 4. Scripts `patch_*.py`, `update_ui.py` e `fix_firebase_auto.py` são descartáveis de sessões antigas. Decidir se remove.
 5. `homework` tem alteração não commitada em `public/index.html`. Conferir antes de arquivar a pasta.
 6. Ao renomear tarefa no Admin, marcações antigas dela deixam de aparecer, porque a chave usa o nome.
-7. Melhorar a consulta de histórico, se fizer falta. Não existe `associate.html` no projeto.
+7. Melhorar a consulta de histórico, se fizer falta.

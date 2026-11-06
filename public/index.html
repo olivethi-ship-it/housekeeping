@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Tarefas da Casa</title>
-  <meta name="app-version" content="v1.2.1">
+  <meta name="app-version" content="v1.3.0">
   <meta name="author" content="© 2026 olivethi">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -201,6 +201,12 @@ textarea{width:100%;min-height:150px;border-radius:10px;border:1px solid var(--l
 .seg.three { grid-template-columns: 1fr 1fr 1fr; }
 
 [hidden], .overlay[hidden], .civil-alert-overlay[hidden] { display: none !important; }
+.assign-row { padding: 10px; background: var(--surface-2); border-radius: 10px; font-size: 0.85rem; }
+.assign-name { font-weight: 700; line-height: 1.25; }
+.assign-slot { color: var(--muted); font-size: 0.75rem; margin-bottom: 6px; }
+.assign-weeks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.assign-weeks label { display: grid; gap: 2px; font-size: 0.72rem; color: var(--muted); min-width: 0; }
+.assign-weeks select, #admin-assign-day { width: 100%; min-width: 0; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); font-size: 0.9rem; background: var(--surface); color: var(--ink); }
 
 /* Modal Alerta Defesa Civil */
 .civil-alert-overlay {
@@ -491,9 +497,18 @@ textarea{width:100%;min-height:150px;border-radius:10px;border:1px solid var(--l
 <div class="overlay" id="silence-modal" role="dialog" aria-modal="true" hidden>
   <div class="sync-modal-sheet">
     <div style="display:flex; justify-content:space-between; align-items:center;">
-      <h3 style="margin:0; font-family:var(--f-display)">🔕 Modo Silêncio / Férias</h3>
+      <h3 style="margin:0; font-family:var(--f-display)">⚙️ Painel Admin</h3>
       <button class="histlink" style="padding:0" type="button" onclick="closeSilenceModal()">✕</button>
     </div>
+
+    <!-- Seção de Associação -->
+    <div style="font-weight:700; font-size:0.95rem">🔗 Associar Tarefas às Pessoas</div>
+    <p style="margin:0; color:var(--muted); font-size:0.85rem">Escolha quem faz cada tarefa em cada semana do ciclo de 4 semanas. A alteração vale na hora para todos os aparelhos.</p>
+    <select id="admin-assign-day" aria-label="Dia da semana" onchange="assignDay = this.value; renderAssignInAdmin()"></select>
+    <div id="admin-assign-list" style="display:grid; gap:8px; max-height:340px; overflow-y:auto"></div>
+
+    <hr style="border:0; border-top:1px solid var(--line); margin:6px 0">
+    <div style="font-weight:700; font-size:0.95rem">🔕 Modo Silêncio / Férias</div>
     <p style="margin:0; color:var(--muted); font-size:0.9rem">
       Pausa temporariamente todos os alertas de 10 min da Defesa Civil (ex: quando a família sai, viaja ou não está em casa).
     </p>
@@ -507,8 +522,6 @@ textarea{width:100%;min-height:150px;border-radius:10px;border:1px solid var(--l
       <button class="btn-emergency" type="button" onclick="cancelSilence()">Desativar Silêncio (Reativar Alertas)</button>
     </div>
 
-    <hr style="border:0; border-top:1px solid var(--line); margin:4px 0">
-    
     <hr style="border:0; border-top:1px solid var(--line); margin:6px 0">
     <div style="font-weight:700; font-size:0.95rem; display:flex; justify-content:space-between; align-items:center">
       <span>📱 Celulares Conectados</span>
@@ -861,6 +874,9 @@ const keyOf = (p, d, name) => p + "|" + iso(d) + "|" + indText(p, name);
 // O Firebase proíbe . # $ / [ ] em chaves: grava codificado na nuvem e usa decodificado no app
 const cloudKey = k => encodeURIComponent(k).replace(/\./g, "%2E");
 const localKey = k => { try { return decodeURIComponent(k); } catch(e) { return k; } };
+// O mesmo vale para mapas cujas chaves são nomes de tarefa ou de pessoa
+const encodeTempo = t => Object.fromEntries(Object.entries(t).map(([k, v]) => [cloudKey(k), v]));
+const decodeTempo = t => Object.fromEntries(Object.entries(t).map(([k, v]) => [localKey(k), v]));
 const isDone = (p, d, name) => !!store.done[keyOf(p, d, name)];
 const isLate = (d, quando) => Date.now() > d.getTime() + DEADLINE[quando] * 3600000;
 
@@ -1370,13 +1386,16 @@ function renderDeviceListInAdmin() {
 /* ---------- Gerenciamento Dinâmico de Tarefas e Pessoas ---------- */
 function syncCustomDataToFirebase() {
   if (!firebaseDb) return;
-  firebaseDb.ref("tarefas_casa/custom_config").set({
-    rows: ROWS,
-    people: PEOPLE,
-    tempo: TEMPO,
-    code: CODE,
-    apelido: APELIDO
-  });
+  const avisar = err => { console.error("Erro ao salvar configuração:", err); alert("Não foi possível salvar a alteração na nuvem."); };
+  try {
+    firebaseDb.ref("tarefas_casa/custom_config").set({
+      rows: ROWS,
+      people: PEOPLE,
+      tempo: encodeTempo(TEMPO),
+      code: encodeTempo(CODE),
+      apelido: encodeTempo(APELIDO)
+    }).catch(avisar);
+  } catch (err) { avisar(err); }
 }
 
 function listenCustomDataFromFirebase() {
@@ -1387,9 +1406,9 @@ function listenCustomDataFromFirebase() {
     if (data && typeof data === "object") {
       if (Array.isArray(data.rows)) ROWS = data.rows;
       if (Array.isArray(data.people)) PEOPLE = data.people;
-      if (data.tempo && typeof data.tempo === "object") TEMPO = data.tempo;
-      if (data.code && typeof data.code === "object") CODE = data.code;
-      if (data.apelido && typeof data.apelido === "object") APELIDO = data.apelido;
+      if (data.tempo && typeof data.tempo === "object") TEMPO = decodeTempo(data.tempo);
+      if (data.code && typeof data.code === "object") CODE = decodeTempo(data.code);
+      if (data.apelido && typeof data.apelido === "object") APELIDO = decodeTempo(data.apelido);
       render(false);
     }
   });
@@ -1428,6 +1447,53 @@ function renderPeopleManagerInAdmin() {
     item.append(info, btnDel);
     container.appendChild(item);
   });
+  renderAssignInAdmin();
+}
+
+/* ---------- Associação de responsáveis por tarefa, dia e semana do ciclo ---------- */
+let assignDay = null;
+
+function assignOptions(current) {
+  const opts = [["—", "Ninguém"]].concat(PEOPLE.map(p => [APELIDO[p] || p, p]));
+  if (PEOPLE.includes("Renata") && PEOPLE.includes("Thiago")) opts.push(["Rê e Thi", "Renata e Thiago"]);
+  opts.push(["Todos", "Todos"]);
+  if (!opts.some(o => o[0] === current)) opts.push([current, current + " (inválido)"]);
+  return opts;
+}
+
+function renderAssignInAdmin() {
+  const dayEl = document.getElementById("admin-assign-day");
+  const listEl = document.getElementById("admin-assign-list");
+  if (!dayEl || !listEl) return;
+  assignDay = assignDay || diaOf(today);
+  dayEl.innerHTML = DIAS.map(d => '<option value="' + d + '"' + (d === assignDay ? " selected" : "") + ">" + DIAS_LONGO[d] + "</option>").join("");
+  listEl.innerHTML = "";
+  const cicloAtual = ((weekIdx(today) % 4) + 4) % 4;
+
+  ROWS.forEach((r, idx) => {
+    if (r[0] !== assignDay) return;
+    const row = el("div", "assign-row");
+    row.append(el("div", "assign-name", r[1]), el("div", "assign-slot", r[2] === "-" ? "Ao longo do dia" : r[2]));
+    const weeks = el("div", "assign-weeks");
+    r[3].forEach((code, w) => {
+      const lab = el("label", null, "Sem. " + (w + 1) + (w === cicloAtual ? " (atual)" : ""));
+      const sel = el("select");
+      sel.setAttribute("aria-label", r[1] + ": semana " + (w + 1));
+      assignOptions(code).forEach(([value, text]) => {
+        const op = el("option", null, text); op.value = value; op.selected = value === code; sel.appendChild(op);
+      });
+      sel.addEventListener("change", () => {
+        ROWS[idx][3][w] = sel.value;
+        syncCustomDataToFirebase();
+        render(false);
+      });
+      lab.appendChild(sel);
+      weeks.appendChild(lab);
+    });
+    row.appendChild(weeks);
+    listEl.appendChild(row);
+  });
+  if (!listEl.children.length) listEl.appendChild(el("div", "assign-slot", "Sem tarefas neste dia."));
 }
 
 function addNewPersonPrompt() {
@@ -1497,6 +1563,7 @@ function renderTasksManagerInAdmin() {
     row.append(details, actions);
     container.appendChild(row);
   });
+  renderAssignInAdmin();
 }
 
 function editTaskPrompt(taskName) {
@@ -1532,7 +1599,8 @@ function addNewTaskPrompt() {
   const finalTime = parseInt(timeStr) || 20;
 
   const resp = prompt("Quem é o responsável? Digite o apelido (ex: " + Object.keys(CODE).join(", ") + ", ou Rê e Thi, ou Todos):", APELIDO[PEOPLE[0]] || "Todos");
-  const finalResp = resp && resp.trim() ? resp.trim() : "Todos";
+  const validos = Object.keys(CODE).concat("Rê e Thi", "Todos");
+  const finalResp = resp && validos.includes(resp.trim()) ? resp.trim() : "Todos";
 
   // Adiciona a tarefa na escala das 4 semanas
   ROWS.push([validDay, finalName, validSlot, [finalResp, finalResp, finalResp, finalResp]]);

@@ -26,3 +26,7 @@ Aplicativo mobile-first / PWA para gestão das tarefas domésticas da família.
    - Protegido por PIN de 4 dígitos (padrão inicial: `1234`).
    - Os filhos não têm acesso e não conseguem silenciar os alertas.
    - Pais podem pausar alertas por 2h, 4h, fim do dia ou semanas (férias/viagens).
+6. **Painel Admin:**
+   - Dashboard → 🔒 Admin → PIN.
+   - Associar responsáveis por tarefa, dia e semana do ciclo.
+   - Editar, criar e excluir tarefas e moradores, e atribuir celulares.

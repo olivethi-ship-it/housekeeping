@@ -43,5 +43,21 @@ if (src) {
   check(sandbox.localKey(k) === k, "localKey deve preservar chave já decodificada");
 }
 
+// 6. custom_config não pode ter chave proibida: TEMPO usa nomes de tarefa como chave
+check(/const encodeTempo = [^\n]+\nconst decodeTempo = [^\n]+/.test(all), "faltam encodeTempo/decodeTempo");
+const tempoSrc = all.match(/const encodeTempo = [^\n]+\nconst decodeTempo = [^\n]+/);
+if (src && tempoSrc) {
+  const sb = {};
+  vm.runInNewContext(`${src[0]}\n${tempoSrc[0]}`.replace(/const /g, "var "), sb);
+  const tempo = { "Passear (manhã/almoço)": 30, "Lavar a louça": 25 };
+  const enc = JSON.parse(JSON.stringify(sb.encodeTempo(tempo)));
+  check(Object.keys(enc).every(k => !/[.#$/[\]]/.test(k)), "tempo codificado ainda tem chave proibida pelo Firebase");
+  check(JSON.stringify(JSON.parse(JSON.stringify(sb.decodeTempo(enc)))) === JSON.stringify(tempo), "encodeTempo/decodeTempo não fazem ida e volta");
+}
+
+// 7. Admin tem a tela de associação de responsáveis por semana
+check(html.includes('id="admin-assign-list"'), "falta a lista de associação no Admin");
+check(/function renderAssignInAdmin\(/.test(all), "falta renderAssignInAdmin");
+
 if (falhas.length) { console.error("FALHOU:\n- " + falhas.join("\n- ")); process.exit(1); }
 console.log("OK: smoke test passou");
