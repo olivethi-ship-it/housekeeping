@@ -3,14 +3,15 @@
 <head>
   <meta charset="utf-8">
   <title>Tarefas da Casa</title>
-  <meta name="app-version" content="v1.3.0">
+  <meta name="app-version" content="v1.4.0">
   <meta name="author" content="© 2026 olivethi">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Tarefas Casa">
   <meta name="theme-color" content="#1F3864">
-  <link rel="apple-touch-icon" href="https://img.icons8.com/color/192/checklist.png">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -997,10 +998,7 @@ function renderTop(){
       c.addEventListener("click", () => {
         person = p;
         store.person = p;
-        if (!deviceOwner) {
-          deviceOwner = p;
-          localStorage.setItem(DEVICE_OWNER_KEY, p);
-        }
+        if (!deviceOwner) setDeviceOwner(p);
         save();
         render(true);
       });
@@ -1321,12 +1319,9 @@ function detectDeviceInfo() {
 function registerDevicePresence() {
   if (!firebaseDb) return;
   const devRef = firebaseDb.ref("tarefas_casa/devices/" + myDeviceId);
-  devRef.update({
-    id: myDeviceId,
-    model: detectDeviceInfo(),
-    owner: deviceOwner || "Não atribuído",
-    lastSeen: Date.now()
-  });
+  const info = { id: myDeviceId, model: detectDeviceInfo(), lastSeen: Date.now() };
+  if (deviceOwner) info.owner = deviceOwner;   // sem dono local, não sobrescreve o dono atribuído pelo Admin
+  devRef.update(info);
   
   // Escuta se o Admin atribuiu este celular a um dono remotamente!
   devRef.child("owner").off("value");   // chamada a cada reconexão: não acumula escutas
@@ -1338,6 +1333,62 @@ function registerDevicePresence() {
       render(false);
     }
   });
+}
+
+function setDeviceOwner(p) {
+  deviceOwner = p;
+  localStorage.setItem(DEVICE_OWNER_KEY, p);
+  if (firebaseDb) firebaseDb.ref("tarefas_casa/devices/" + myDeviceId + "/owner").set(p);
+}
+
+/* ---------- Alertas com o app fechado (Web Push; o envio é feito pelo GitHub Actions) ---------- */
+const VAPID_PUBLIC = "BKiO6-6ABlzOObmuamHEMV0CjwF5dDGJXZliaVzrjs-s-SwHB7MXPKzo2bQ_faQ6yAKYDpVx-aQ6H659bOBfBdY";
+let swReg = null, pushActive = false;
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+function b64ToBytes(s) {
+  const b = atob((s + "=".repeat((4 - s.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(b, c => c.charCodeAt(0));
+}
+async function registerSW() {
+  if (!("serviceWorker" in navigator)) return null;
+  try { swReg = await navigator.serviceWorker.register("/sw.js"); } catch (e) { console.warn("Service worker:", e); }
+  return swReg;
+}
+async function enablePush(interactive) {
+  if (!pushSupported()) {
+    if (interactive) alert(isIOS && !isStandalone
+      ? "No iPhone: toque em Compartilhar e depois em \"Adicionar à Tela de Início\". Abra o app pelo novo ícone e ative os alertas por lá."
+      : "Este navegador não suporta notificações. Use o Chrome ou o Edge.");
+    return false;
+  }
+  if (interactive && !deviceOwner) {
+    const chosen = prompt("De quem é este aparelho?\nDigite: " + PEOPLE.join(", "), person || "");
+    if (!chosen || !PEOPLE.includes(chosen.trim())) { alert("Escolha um nome da lista para receber os alertas."); return false; }
+    setDeviceOwner(chosen.trim());
+  }
+  if (Notification.permission !== "granted") {
+    if (!interactive) return false;
+    if (await Notification.requestPermission() !== "granted") {
+      alert("As notificações estão bloqueadas. Libere nas configurações do navegador para este site e tente de novo.");
+      return false;
+    }
+  }
+  const reg = swReg || await registerSW();
+  if (!reg) return false;
+  try {
+    await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription())
+      || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC) }));
+    if (firebaseDb) firebaseDb.ref("tarefas_casa/devices/" + myDeviceId + "/push").set({ sub: JSON.parse(JSON.stringify(sub)), updatedAt: Date.now() });
+    pushActive = true;
+    return true;
+  } catch (e) {
+    console.warn("Push:", e);
+    if (interactive) alert("Não foi possível ativar os alertas: " + e.message);
+    return false;
+  }
 }
 
 // Renderiza a lista de celulares dentro do painel Admin
@@ -1615,6 +1666,7 @@ function addNewTaskPrompt() {
 // Inicializa a conexão com a nuvem automaticamente antes de renderizar a interface
 initFirebase();
 render(true);
+registerSW().then(() => enablePush(false)).then(ok => { if (ok) render(false); });   // renova a assinatura a cada abertura
 
 function syncTaskToCloud(key, value) {
   if (!firebaseDb || isRemoteUpdating) return;
@@ -1705,14 +1757,12 @@ function triggerCivilDefenseAlert(lateTasks) {
   }
   
   // Notificação push do sistema (se concedido)
-  if ("Notification" in window && Notification.permission === "granted") {
-    try {
-      new Notification("🚨 ALERTA DA DEFESA CIVIL DOMÉSTICA", {
-        body: lateTasks.length + " tarefa(s) atrasada(s)! Verifique agora.",
-        icon: "https://img.icons8.com/color/192/siren.png",
-        requireInteraction: true
-      });
-    } catch(e){}
+  if (swReg && "Notification" in window && Notification.permission === "granted") {
+    swReg.showNotification("🚨 ALERTA DA DEFESA CIVIL DOMÉSTICA", {
+      body: lateTasks.length + " tarefa(s) atrasada(s)! Verifique agora.",
+      tag: "atraso", renotify: true, requireInteraction: true,
+      vibrate: [500, 200, 500, 200, 900], icon: "/icon-192.png", badge: "/icon-192.png"
+    }).catch(() => {});
   }
   
   // Exibe o Pop-up na tela
@@ -1927,8 +1977,7 @@ function renderDashboard(main) {
   btnChangeOwner.addEventListener("click", () => {
     const chosen = prompt("Quem é o dono principal deste celular?\nDigite exatamente: Renata, Thiago, Giovana ou Felipe", deviceOwner || "Thiago");
     if (chosen && PEOPLE.includes(chosen.trim())) {
-      deviceOwner = chosen.trim();
-      localStorage.setItem(DEVICE_OWNER_KEY, deviceOwner);
+      setDeviceOwner(chosen.trim());
       alert("Aparelho vinculado a " + deviceOwner + "! Os alertas sonoros e vibrações serão apenas das tarefas de " + deviceOwner + ".");
       render(false);
     }
@@ -1936,22 +1985,15 @@ function renderDashboard(main) {
   ownerBox.appendChild(btnChangeOwner);
   cardActions.appendChild(ownerBox);
 
-  const notifyGranted = ("Notification" in window && Notification.permission === "granted");
-  const btnReqNotify = el("button", "btn " + (notifyGranted ? "ghost" : ""), notifyGranted ? "🔔 Notificações Ativas ✓" : "🔔 Notificações Obrigatórias (Ativar)");
+  const btnReqNotify = el("button", "btn " + (pushActive ? "ghost" : ""), pushActive ? "🔔 Alertas ativos neste aparelho ✓" : "🔔 Ativar alertas neste aparelho (obrigatório)");
   btnReqNotify.type = "button";
-  btnReqNotify.addEventListener("click", () => {
-    if ("Notification" in window) {
-      Notification.requestPermission().then(perm => {
-        if (perm === "granted") alert("Notificações ativadas com sucesso!");
-        else alert("Atenção: As notificações são obrigatórias para os alertas. Ative nas permissões do seu navegador.");
-        render(false);
-      });
-    } else {
-      alert("Navegador sem suporte a Web Notifications.");
-    }
+  btnReqNotify.addEventListener("click", async () => {
+    if (await enablePush(true)) alert("Alertas ativados! " + deviceOwner + " será avisado(a) das tarefas atrasadas a cada 10 min, mesmo com o app fechado.");
+    render(false);
   });
 
-  cardActions.append(btnTestAlert, btnReqNotify);
+  cardActions.append(btnReqNotify, btnTestAlert);
+  if (isIOS && !isStandalone) cardActions.appendChild(el("p", "note", "No iPhone: toque em Compartilhar → \"Adicionar à Tela de Início\", abra o app pelo ícone e ative os alertas por lá."));
 
   // Se autenticado como Admin, exibe opções adicionais
   if (isAdminAuthenticated) {
@@ -1969,25 +2011,6 @@ function renderDashboard(main) {
   main.appendChild(cardActions);
 }
 
-
-// Solicitação OBRIGATÓRIA de notificações ao carregar ou no primeiro toque
-function ensureNotificationPermission() {
-  if ("Notification" in window) {
-    if (Notification.permission === "default") {
-      Notification.requestPermission().then(perm => {
-        if (perm === "denied") {
-          console.warn("Notificações bloqueadas pelo usuário.");
-        }
-      });
-    }
-  }
-}
-window.addEventListener("DOMContentLoaded", ensureNotificationPermission);
-window.addEventListener("click", () => {
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission();
-  }
-}, { passive: true });
 
 setInterval(checkCivilAlertLoop, 600000);
 setTimeout(checkCivilAlertLoop, 5000);   // primeira checagem logo ao abrir, após carregar as marcações da nuvem

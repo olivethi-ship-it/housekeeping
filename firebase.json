@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "predeploy": "node tests/smoke.mjs",
+    "predeploy": "npm test",
     "public": "public",
     "ignore": [
       "firebase.json",

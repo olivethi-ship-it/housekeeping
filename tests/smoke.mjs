@@ -59,5 +59,20 @@ if (src && tempoSrc) {
 check(html.includes('id="admin-assign-list"'), "falta a lista de associação no Admin");
 check(/function renderAssignInAdmin\(/.test(all), "falta renderAssignInAdmin");
 
+// 8. PWA com push: manifest, service worker, ícones e chave pública VAPID
+check(/<link rel="manifest" href="\/manifest\.json">/.test(html), "falta o link do manifest");
+for (const f of ["manifest.json", "sw.js", "icon-192.png", "icon-512.png"]) check(existsSync(join(pub, f)), `falta public/${f}`);
+if (existsSync(join(pub, "manifest.json"))) {
+  const mf = JSON.parse(readFileSync(join(pub, "manifest.json"), "utf8"));
+  check(mf.display === "standalone" && mf.icons?.length >= 2, "manifest precisa de display standalone e 2 ícones");
+}
+if (existsSync(join(pub, "sw.js"))) {
+  const sw = readFileSync(join(pub, "sw.js"), "utf8");
+  try { new vm.Script(sw); } catch (e) { check(false, "sw.js não compila: " + e.message); }
+  check(/addEventListener\("push"/.test(sw) && /notificationclick/.test(sw), "sw.js precisa tratar push e notificationclick");
+}
+check(/const VAPID_PUBLIC = "[A-Za-z0-9_-]{80,}";/.test(all), "falta a chave pública VAPID");
+check(!/new Notification\(/.test(all), "new Notification() falha no Android; use registration.showNotification");
+
 if (falhas.length) { console.error("FALHOU:\n- " + falhas.join("\n- ")); process.exit(1); }
 console.log("OK: smoke test passou");

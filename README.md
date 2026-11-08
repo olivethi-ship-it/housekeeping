@@ -26,7 +26,15 @@ Aplicativo mobile-first / PWA para gestão das tarefas domésticas da família.
    - Protegido por PIN de 4 dígitos (padrão inicial: `1234`).
    - Os filhos não têm acesso e não conseguem silenciar os alertas.
    - Pais podem pausar alertas por 2h, 4h, fim do dia ou semanas (férias/viagens).
-6. **Painel Admin:**
+6. **Alertas com o app fechado (push):**
+   - O GitHub Actions (`.github/workflows/alertas.yml`) roda a cada 10 min e avisa quem tem tarefa atrasada, até marcar como feita.
+   - Para testar: GitHub → Actions → "Alertas de atraso" → Run workflow → marcar "teste".
+   - Ativação, uma vez em cada aparelho (Dashboard → "🔔 Ativar alertas neste aparelho"):
+     - **Android:** abrir no Chrome → ⋮ → "Instalar app" (opcional) → ativar alertas → Permitir.
+     - **iPhone (iOS 16.4+):** abrir no Safari → Compartilhar → "Adicionar à Tela de Início" → abrir pelo ícone → ativar alertas → Permitir.
+     - **Windows:** abrir no Chrome ou Edge → ativar alertas → Permitir. O navegador precisa poder rodar em segundo plano.
+   - Som e vibração seguem o perfil do aparelho; no silencioso total, o aviso chega só na tela.
+7. **Painel Admin:**
    - Dashboard → 🔒 Admin → PIN.
    - Associar responsáveis por tarefa, dia e semana do ciclo.
    - Editar, criar e excluir tarefas e moradores, e atribuir celulares.

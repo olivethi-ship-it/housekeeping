@@ -1,0 +1,12 @@
+{
+  "name": "housekeeping",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/smoke.mjs && node --test tests/late.test.mjs",
+    "alertas": "node scripts/notify.mjs"
+  },
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}
