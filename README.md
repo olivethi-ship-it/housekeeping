@@ -34,6 +34,7 @@ Aplicativo mobile-first / PWA para gestão das tarefas domésticas da família.
      - **iPhone (iOS 16.4+):** abrir no Safari → Compartilhar → "Adicionar à Tela de Início" → abrir pelo ícone → ativar alertas → Permitir.
      - **Windows:** abrir no Chrome ou Edge → ativar alertas → Permitir. O navegador precisa poder rodar em segundo plano.
    - Som e vibração seguem o perfil do aparelho; no silencioso total, o aviso chega só na tela.
+   - Silêncio noturno fixo: nenhum alerta das 22h às 7h.
 7. **Painel Admin:**
    - Dashboard → 🔒 Admin → PIN.
    - Associar responsáveis por tarefa, dia e semana do ciclo.

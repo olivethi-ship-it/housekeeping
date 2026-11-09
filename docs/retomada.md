@@ -20,6 +20,12 @@ Em execução por: ninguém
 - v1.4.0: o aparelho sem dono não sobrescreve mais o dono atribuído pelo Admin. Trocar o dono agora grava na nuvem.
 - Não testado em aparelho real: o painel do Claude não roda service worker. Validar com Actions → Run workflow → "teste".
 
+- v1.4.1 (2026-11-09): silêncio noturno fixo das 22h às 7h, no push (`isQuietHour` em `scripts/late.mjs`) e no alerta do app aberto.
+
+## Problema aberto (2026-11-09): push não chega
+- Só 1 aparelho tem inscrição push (`dev_zf0m`, Thiago, Android). Renata (`dev_2ak5`) e os demais nunca tocaram em "Ativar alertas".
+- O cron do GitHub é "melhor esforço": rodou a cada 3 a 7 horas, não a cada 10 min. Precisa de um disparador externo (ex.: cron-job.org chamando `workflow_dispatch`), a decidir com o Thiago.
+
 ## Pendências (dívida técnica)
 1. **Segurança, prioridade alta:** o Realtime Database aceita leitura sem login e o app não tem autenticação; logo, a escrita também é aberta. `admin_pin` fica nesse banco, então o PIN é só uma barreira de tela. Resolver exige Firebase Auth (ex.: anônimo) e regras versionadas.
 2. Repositório público contém o PIN padrão no código e no README. Trocar o PIN pelo Admin e avaliar tornar o repositório privado.
