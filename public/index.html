@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Tarefas da Casa</title>
-  <meta name="app-version" content="v1.4.0">
+  <meta name="app-version" content="v1.4.1">
   <meta name="author" content="© 2026 olivethi">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1802,8 +1802,12 @@ setTimeout(() => {
   if (b2) b2.addEventListener("click", () => closeCivilAlert(0));
 }, 100);
 
+// Silêncio noturno fixo das 22h às 7h (igual a isQuietHour de scripts/late.mjs).
+const isQuietHour = now => now.getHours() >= 22 || now.getHours() < 7;
+
 function checkCivilAlertLoop() {
-  // 1. Ignora se estiver sob modo silêncio geral/férias ativo
+  // 1. Ignora no silêncio noturno e sob modo silêncio geral/férias ativo
+  if (isQuietHour(new Date())) return;
   if (silenceState.active && silenceState.until > Date.now()) return;
   if (Date.now() < snoozeUntil) return;
 

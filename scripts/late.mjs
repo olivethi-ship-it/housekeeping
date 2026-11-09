@@ -70,9 +70,14 @@ export function lateByPerson(cfg, cloudDone, now) {
   return out;
 }
 
+/** Silêncio noturno fixo: das 22h às 7h ninguém é incomodado (igual a isQuietHour do index.html). */
+export const QUIET_FROM = 22, QUIET_TO = 7;
+export const isQuietHour = now => now.getHours() >= QUIET_FROM || now.getHours() < QUIET_TO;
+
 /** Lista de envios: [{deviceId, person, tasks, sub}] */
 export function plan(state, defaults, now) {
   const s = state || {};
+  if (isQuietHour(now)) return [];
   if (s.silence && s.silence.active && s.silence.until > now.getTime()) return [];
   const late = lateByPerson(configFrom(s.custom_config, defaults), s.done, now);
   return Object.entries(s.devices || {})

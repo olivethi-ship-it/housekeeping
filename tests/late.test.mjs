@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { defaultsFromHtml, configFrom, keyOf, lateByPerson, plan } from "../scripts/late.mjs";
+import { defaultsFromHtml, configFrom, keyOf, lateByPerson, plan, isQuietHour } from "../scripts/late.mjs";
 
 const html = readFileSync(fileURLToPath(new URL("../public/index.html", import.meta.url)), "utf8");
 const defaults = defaultsFromHtml(html);
@@ -63,6 +63,16 @@ test("plano envia só para aparelhos com push e dono atrasado", () => {
   const p = plan(state, defaults, at(2026, 11, 6, 13));
   assert.deepEqual(p.map(x => [x.deviceId, x.person, x.tasks.length]), [["a", "Thiago", 1]]);
   assert.deepEqual(p[0].sub, sub);
+});
+
+test("silêncio noturno: das 22h às 7h não envia; fora disso envia", () => {
+  const devices = { a: { id: "a", owner: "Thiago", push: { sub } } };
+  assert.equal(isQuietHour(at(2026, 11, 6, 21, 59)), false);
+  assert.equal(isQuietHour(at(2026, 11, 6, 22, 0)), true);
+  assert.equal(isQuietHour(at(2026, 11, 7, 6, 59)), true);
+  assert.equal(isQuietHour(at(2026, 11, 7, 7, 0)), false);
+  assert.equal(plan({ devices }, defaults, at(2026, 11, 6, 22, 30)).length, 0);
+  assert.equal(plan({ devices }, defaults, at(2026, 11, 6, 21, 30)).length, 1);
 });
 
 test("modo silêncio ativo não envia nada; vencido volta a enviar", () => {
